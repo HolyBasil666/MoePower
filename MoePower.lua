@@ -65,7 +65,8 @@ local function CreateEssenceOrbs()
         -- Border texture
         local border = borderFrame:CreateTexture(nil, "OVERLAY")
         border:SetAllPoints(borderFrame)
-        border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+        -- Using standard circular border texture
+        border:SetTexture("Interface\\Addons\\Blizzard_UnitFrame\\UI-HUD-UnitFrame-Player-CombatIcon")
         border:SetVertexColor(ESSENCE_COLOR.r, ESSENCE_COLOR.g, ESSENCE_COLOR.b, 1)
 
         -- Store references
