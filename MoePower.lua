@@ -8,8 +8,9 @@ local essenceOrbs = {}
 -- Saved variables (initialized by WoW)
 MoePowerDB = MoePowerDB or {}
 
--- Evoker essence color (cyan/teal)
-local ESSENCE_COLOR = {r = 0.3, g = 0.8, b = 0.9}
+-- Constants
+local ESSENCE_COLOR = {r = 0.3, g = 0.8, b = 0.9}  -- Evoker essence color (cyan/teal)
+local GRID_SIZE = 5  -- Snap to grid every 5 pixels
 
 -- Create essence orbs in arc formation
 local function CreateEssenceOrbs()
@@ -76,9 +77,24 @@ local function UpdateEssence()
     end
 end
 
--- Save frame position
+-- Snap coordinate to grid
+local function SnapToGrid(value)
+    return math.floor(value / GRID_SIZE + 0.5) * GRID_SIZE
+end
+
+-- Save frame position with grid snapping
 local function SavePosition()
     local point, _, relativePoint, x, y = frame:GetPoint()
+
+    -- Snap to grid
+    x = SnapToGrid(x)
+    y = SnapToGrid(y)
+
+    -- Apply snapped position
+    frame:ClearAllPoints()
+    frame:SetPoint(point, UIParent, relativePoint, x, y)
+
+    -- Save snapped position
     MoePowerDB.position = {
         point = point,
         relativePoint = relativePoint,
