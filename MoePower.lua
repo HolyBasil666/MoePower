@@ -17,7 +17,7 @@ local function CreateEssenceOrbs()
 
     local orbSize = 28
     local arcRadius = 70  -- Distance from center
-    local arcSpan = 90    -- Total degrees of arc (reduced for flatter curve)
+    local arcSpan = 175   -- Total degrees of arc
     local startAngle = 90 + (arcSpan / 2)  -- Start from top-left
 
     for i = 1, maxEssence do
