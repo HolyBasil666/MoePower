@@ -38,10 +38,20 @@ local function CreateEssenceOrbs()
 
         -- Set up the model using file ID from WeakAura
         orb:SetModel(122968)  -- spells/arcanepower_state_chest.m2
+
+        -- Match WeakAuras settings more closely
         orb:SetCamera(0)
         orb:SetPosition(0, 0, 0)
         orb:SetFacing(math.rad(90))
-        orb:SetModelScale(1)
+
+        -- Try larger scale to make it visible
+        orb:SetModelScale(40)  -- Match WeakAura's model_st_us: 40
+
+        -- Animate the model (sequence 1)
+        if orb.SetSequence then
+            orb:SetSequence(1)
+            orb:SetSequenceTime(1, 0)
+        end
 
         -- Store references
         essenceOrbs[i] = {
