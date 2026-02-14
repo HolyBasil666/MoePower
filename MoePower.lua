@@ -46,6 +46,7 @@ local function CreateEssenceOrbs()
         local border = orb:CreateTexture(nil, "OVERLAY")
         border:SetAllPoints(orb)
         border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+        border:SetVertexColor(ESSENCE_COLOR.r, ESSENCE_COLOR.g, ESSENCE_COLOR.b, 1)
 
         -- Store references
         essenceOrbs[i] = {
