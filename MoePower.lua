@@ -121,7 +121,7 @@ local function SetupEditMode()
 
     -- Create draggable overlay for Edit Mode (covers orb area)
     local dragFrame = CreateFrame("Frame", nil, frame)
-    dragFrame:SetSize(220, 70)  -- Wide enough to cover all orbs
+    dragFrame:SetSize(220, 150)  -- Taller to reach horizontal center line
     dragFrame:SetPoint("CENTER", frame, "CENTER", 0, 140)  -- Position where orbs are
     dragFrame:EnableMouse(true)
     dragFrame:SetFrameStrata("HIGH")
@@ -196,7 +196,7 @@ local function Initialize()
     -- Create main frame
     frame = CreateFrame("Frame", "MoePowerFrame", UIParent)
     frame:SetSize(200, 200)  -- Larger to contain orbs
-    frame:SetPoint("CENTER", UIParent, "CENTER", 0, -105)  -- Default position (dragFrame bottom at y=0)
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, -65)  -- Default position
 
     -- Load saved position if it exists
     LoadPosition()
