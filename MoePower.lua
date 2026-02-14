@@ -35,7 +35,13 @@ local function CreateEssenceOrbs()
         local orb = CreateFrame("PlayerModel", nil, frame)
         orb:SetSize(orbSize, orbSize)
         orb:SetPoint("CENTER", frame, "CENTER", x, y)
+
+        -- Set up the model
         orb:SetModel("Spells/cfx_evoker_livingflame_precast.m2")
+        orb:SetCamera(0)
+        orb:SetPosition(0, 0, 0)
+        orb:SetFacing(0)
+        orb:SetModelScale(1)
         orb:SetAlpha(1)
 
         -- Store references
