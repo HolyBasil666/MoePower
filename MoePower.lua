@@ -57,10 +57,15 @@ end
 -- Update orb display based on current essence
 local function UpdateEssence()
     local currentEssence = UnitPower("player", Enum.PowerType.Essence)
+    local maxEssence = #essenceOrbs
 
-    for i = 1, #essenceOrbs do
-        if i <= currentEssence then
-            essenceOrbs[i].frame:Show()  -- Show orb
+    -- Calculate centered range of orbs to show
+    local startIndex = math.floor((maxEssence - currentEssence) / 2) + 1
+    local endIndex = startIndex + currentEssence - 1
+
+    for i = 1, maxEssence do
+        if i >= startIndex and i <= endIndex then
+            essenceOrbs[i].frame:Show()  -- Show centered orb
         else
             essenceOrbs[i].frame:Hide()  -- Hide orb
         end
