@@ -59,50 +59,16 @@ local function UpdateEssence()
     local currentEssence = UnitPower("player", Enum.PowerType.Essence)
     local maxEssence = #essenceOrbs
 
-    if currentEssence == 0 then
-        -- Hide all orbs
-        for i = 1, maxEssence do
-            essenceOrbs[i].frame:Hide()
-        end
-        return
-    end
+    -- Calculate centered range of orbs to show
+    -- For max=5: 1 essence shows pos 3, 2 shows 2-3, 3 shows 2-4, etc.
+    local startIndex = math.floor((maxEssence - currentEssence) / 2) + 1
+    local endIndex = startIndex + currentEssence - 1
 
-    -- Recalculate positions for current number of orbs
-    local arcRadius = 70
-    local baseArcSpan = 140
-
-    -- Position and show only the orbs we need
     for i = 1, maxEssence do
-        if i <= currentEssence then
-            local angle
-
-            if currentEssence == 1 then
-                -- Single orb: exact center
-                angle = 90
-            elseif currentEssence % 2 == 1 then
-                -- Odd number: center orb at 90°, others spread symmetrically
-                local middleIndex = math.ceil(currentEssence / 2)
-                local angleStep = baseArcSpan / (currentEssence - 1)
-                local offset = i - middleIndex
-                angle = 90 + (offset * angleStep)
-            else
-                -- Even number: no center orb, symmetric pairs around 90°
-                -- Use narrower arc for even numbers to keep them more centered
-                local effectiveSpan = baseArcSpan * (currentEssence - 1) / currentEssence
-                local angleStep = effectiveSpan / (currentEssence - 1)
-                local offset = i - (currentEssence / 2 + 0.5)
-                angle = 90 + (offset * angleStep)
-            end
-
-            local radian = math.rad(angle)
-            local x = arcRadius * math.cos(radian)
-            local y = arcRadius * math.sin(radian)
-
-            essenceOrbs[i].frame:ClearAllPoints()
-            essenceOrbs[i].frame:SetPoint("CENTER", frame, "CENTER", x, y)
-            essenceOrbs[i].frame:Show()
+        if i >= startIndex and i <= endIndex then
+            essenceOrbs[i].frame:Show()  -- Show centered orb
         else
-            essenceOrbs[i].frame:Hide()
+            essenceOrbs[i].frame:Hide()  -- Hide orb
         end
     end
 end
