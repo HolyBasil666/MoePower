@@ -17,7 +17,7 @@ local function CreateEssenceOrbs()
 
     local orbSize = 28
     local arcRadius = 130  -- Distance from center (increased for wider spread)
-    local arcSpan = 90     -- Total degrees of arc (flatter curve)
+    local arcSpan = 60     -- Total degrees of arc (flatter curve)
     local startAngle = 90 + (arcSpan / 2)  -- Start from top-left
 
     for i = 1, maxEssence do
@@ -85,7 +85,7 @@ local function Initialize()
     -- Create main frame
     frame = CreateFrame("Frame", "MoePowerFrame", UIParent)
     frame:SetSize(200, 200)  -- Larger to contain orbs
-    frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)  -- Center of screen
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, -100)  -- Moved down from center
 
     -- Create essence orbs
     CreateEssenceOrbs()
