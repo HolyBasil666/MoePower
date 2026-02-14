@@ -36,17 +36,11 @@ local function CreateEssenceOrbs()
         orb:SetSize(orbSize, orbSize)
         orb:SetPoint("CENTER", frame, "CENTER", x, y)
 
-        -- Orb texture (always filled when visible)
+        -- Orb texture (single ring)
         local fill = orb:CreateTexture(nil, "ARTWORK")
         fill:SetAllPoints(orb)
         fill:SetTexture("Interface\\PlayerFrame\\UI-PlayerFrame-DeathKnight-Ring")  -- Circular texture
         fill:SetVertexColor(ESSENCE_COLOR.r, ESSENCE_COLOR.g, ESSENCE_COLOR.b, 1)
-
-        -- Border/ring
-        local border = orb:CreateTexture(nil, "OVERLAY")
-        border:SetAllPoints(orb)
-        border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-        border:SetVertexColor(ESSENCE_COLOR.r, ESSENCE_COLOR.g, ESSENCE_COLOR.b, 1)
 
         -- Store references
         essenceOrbs[i] = {
