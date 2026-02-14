@@ -116,7 +116,7 @@ end
 local function SetupEditMode()
     -- Make frame movable
     frame:SetMovable(true)
-    frame:EnableMouse(true)
+    frame:EnableMouse(false)  -- Don't capture mouse input (dragFrame handles it in Edit Mode)
     frame:SetClampedToScreen(true)
 
     -- Create draggable overlay for Edit Mode (covers orb area)
