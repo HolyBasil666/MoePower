@@ -196,7 +196,7 @@ local function Initialize()
     -- Create main frame
     frame = CreateFrame("Frame", "MoePowerFrame", UIParent)
     frame:SetSize(200, 200)  -- Larger to contain orbs
-    frame:SetPoint("CENTER", UIParent, "CENTER", 0, -65)  -- Default position (moved up 40px)
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, -105)  -- Default position (dragFrame bottom at y=0)
 
     -- Load saved position if it exists
     LoadPosition()
