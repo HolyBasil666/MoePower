@@ -22,3 +22,8 @@ releases/
 
 # Temporary files
 *.tmp
+
+# Screenshots and images
+*.png
+*.jpg
+*.jpeg
