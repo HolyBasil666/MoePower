@@ -32,18 +32,11 @@ local function CreateEssenceOrbs()
         orb:SetSize(orbSize, orbSize)
         orb:SetPoint("CENTER", frame, "CENTER", x, y)
 
-        -- Background (empty state) - using circular texture
-        local bg = orb:CreateTexture(nil, "BACKGROUND")
-        bg:SetAllPoints(orb)
-        bg:SetTexture("Interface\\PlayerFrame\\UI-PlayerFrame-DeathKnight-Ring")  -- Circular texture
-        bg:SetVertexColor(0.2, 0.2, 0.2, 0.8)  -- Dark gray
-
-        -- Fill texture (filled state)
+        -- Orb texture (always filled when visible)
         local fill = orb:CreateTexture(nil, "ARTWORK")
         fill:SetAllPoints(orb)
         fill:SetTexture("Interface\\PlayerFrame\\UI-PlayerFrame-DeathKnight-Ring")  -- Circular texture
         fill:SetVertexColor(ESSENCE_COLOR.r, ESSENCE_COLOR.g, ESSENCE_COLOR.b, 1)
-        fill:Hide()  -- Start hidden
 
         -- Border/ring
         local border = orb:CreateTexture(nil, "OVERLAY")
@@ -53,9 +46,11 @@ local function CreateEssenceOrbs()
         -- Store references
         essenceOrbs[i] = {
             frame = orb,
-            fill = fill,
-            bg = bg
+            fill = fill
         }
+
+        -- Start hidden (will show based on current essence)
+        orb:Hide()
     end
 end
 
@@ -65,9 +60,9 @@ local function UpdateEssence()
 
     for i = 1, #essenceOrbs do
         if i <= currentEssence then
-            essenceOrbs[i].fill:Show()  -- Show filled orb
+            essenceOrbs[i].frame:Show()  -- Show orb
         else
-            essenceOrbs[i].fill:Hide()  -- Show empty orb
+            essenceOrbs[i].frame:Hide()  -- Hide orb
         end
     end
 end
