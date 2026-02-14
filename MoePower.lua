@@ -10,7 +10,7 @@ MoePowerDB = MoePowerDB or {}
 
 -- Constants
 local ESSENCE_COLOR = {r = 0.3, g = 0.8, b = 0.9}  -- Evoker essence color (cyan/teal)
-local GRID_SIZE = 5  -- Snap to grid every 5 pixels
+local GRID_SIZE = 10  -- Snap to grid every 10 pixels
 
 -- Create essence orbs in arc formation
 local function CreateEssenceOrbs()
