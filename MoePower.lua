@@ -56,9 +56,22 @@ local function CreateEssenceOrbs()
         -- Must call Show() for model to render
         orb:Show()
 
+        -- Add border frame overlay
+        local borderFrame = CreateFrame("Frame", nil, frame)
+        borderFrame:SetSize(orbSize, orbSize)
+        borderFrame:SetPoint("CENTER", orb, "CENTER", 0, 0)
+        borderFrame:SetFrameStrata("HIGH")
+
+        -- Border texture
+        local border = borderFrame:CreateTexture(nil, "OVERLAY")
+        border:SetAllPoints(borderFrame)
+        border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+        border:SetVertexColor(ESSENCE_COLOR.r, ESSENCE_COLOR.g, ESSENCE_COLOR.b, 1)
+
         -- Store references
         essenceOrbs[i] = {
-            frame = orb
+            frame = orb,
+            border = borderFrame
         }
 
         -- Start hidden (will show based on current essence)
@@ -79,8 +92,14 @@ local function UpdateEssence()
     for i = 1, maxEssence do
         if i >= startIndex and i <= endIndex then
             essenceOrbs[i].frame:Show()  -- Show centered orb
+            if essenceOrbs[i].border then
+                essenceOrbs[i].border:Show()  -- Show border
+            end
         else
             essenceOrbs[i].frame:Hide()  -- Hide orb
+            if essenceOrbs[i].border then
+                essenceOrbs[i].border:Hide()  -- Hide border
+            end
         end
     end
 end
