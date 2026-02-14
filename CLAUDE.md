@@ -54,3 +54,252 @@ They're loaded during ADDON_LOADED event.
 - `/reload` - Reload UI without restarting game
 - `/fstack` - Show frame stack under mouse
 - `/etrace` - Event trace to see what events fire
+- `/dump UnitPower("player")` - Check current power value
+- `/dump UnitPowerMax("player")` - Check maximum power
+- `/dump UnitPowerType("player")` - Get power type enum
+
+## Class Power Systems
+
+### Power Types (Enum.PowerType)
+Each class uses different power systems:
+- **Mana**: Most casters (Mage, Priest, Warlock, etc.)
+- **Rage**: Warriors, Druids (Bear form)
+- **Energy**: Rogues, Druids (Cat form), Monks
+- **Focus**: Hunters
+- **Runic Power**: Death Knights
+- **Combo Points**: Rogues, Druids (Feral)
+- **Holy Power**: Paladins
+- **Soul Shards**: Warlocks
+- **Chi**: Monks
+- **Maelstrom**: Shamans (Enhancement/Elemental)
+- **Fury**: Demon Hunters
+- **Pain**: Demon Hunters (Vengeance)
+- **Insanity**: Shadow Priests
+- **Arcane Charges**: Arcane Mages
+- **Runes**: Death Knights (6 runes)
+
+### Key API Functions
+```lua
+-- Power information
+UnitPower(unit, powerType) -- Current power amount
+UnitPowerMax(unit, powerType) -- Maximum power
+UnitPowerType(unit) -- Returns powerTypeEnum, powerToken, altR, altG, altB
+PowerBarColor[powerType] -- Default Blizzard colors {r, g, b}
+
+-- Class and spec
+UnitClass(unit) -- Returns className, classFilename, classID
+GetSpecialization() -- Current spec number (1-4)
+GetSpecializationInfo(specIndex) -- Detailed spec info
+
+-- Events to monitor
+UNIT_POWER_UPDATE -- Fires when power changes
+UNIT_POWER_FREQUENT -- Fires more frequently for smooth updates
+UNIT_MAXPOWER -- Fires when max power changes
+PLAYER_SPECIALIZATION_CHANGED -- Spec change
+PLAYER_ENTERING_WORLD -- Login/reload/zone change
+```
+
+## UI/Frame Development
+
+### Creating a Power Bar
+```lua
+local frame = CreateFrame("Frame", "MoePowerFrame", UIParent)
+frame:SetSize(width, height)
+frame:SetPoint("CENTER", UIParent, "CENTER", x, y)
+
+-- Texture for background
+local bg = frame:CreateTexture(nil, "BACKGROUND")
+bg:SetAllPoints(frame)
+bg:SetColorTexture(0, 0, 0, 0.5)
+
+-- Texture for power bar
+local bar = frame:CreateTexture(nil, "ARTWORK")
+bar:SetPoint("BOTTOMLEFT")
+bar:SetSize(width * fillPercent, height)
+bar:SetColorTexture(r, g, b, 1)
+```
+
+### Frame Layers (Z-order)
+1. BACKGROUND
+2. BORDER
+3. ARTWORK
+4. OVERLAY
+5. HIGHLIGHT
+
+### Anchoring
+```lua
+frame:SetPoint("point", relativeTo, "relativePoint", x, y)
+-- Example: SetPoint("TOPLEFT", UIParent, "CENTER", 0, 100)
+```
+
+## Performance Best Practices
+
+1. **Throttle Updates**: Don't update on every UNIT_POWER_FREQUENT for smooth animations
+2. **Hide When Not Needed**: Use `frame:Hide()` when player is dead/ghost
+3. **Unregister Events**: Unregister events when not needed to reduce overhead
+4. **Avoid String Concatenation**: Use string.format() for better performance
+5. **Cache Values**: Store frequently accessed values (class, spec) instead of calling API repeatedly
+
+## Saved Variables Best Practices
+
+```lua
+-- Initialize with defaults
+MoePowerDB = MoePowerDB or {
+    position = { point = "CENTER", x = 0, y = -200 },
+    scale = 1.0,
+    colors = {},
+    enabled = true
+}
+
+-- Per-character settings
+MoePowerCharDB = MoePowerCharDB or {
+    showInCombatOnly = false
+}
+```
+
+## Common Pitfalls
+
+1. **Timing**: Some API calls return nil during early load. Use PLAYER_LOGIN or PLAYER_ENTERING_WORLD
+2. **Unit Tokens**: Always use "player" not character name for the player unit
+3. **Coordinate System**: (0,0) is bottom-left, positive Y goes up
+4. **Frame Strata**: Higher strata appears on top (BACKGROUND < LOW < MEDIUM < HIGH < DIALOG < FULLSCREEN < TOOLTIP)
+5. **Textures**: Must set size explicitly, don't inherit parent size automatically
+
+## Debugging Techniques
+
+1. Print to chat: `print("Debug:", value)`
+2. Use DevTools addon for better debugging
+3. Check Lua errors: `/console scriptErrors 1`
+4. Reload often during development: `/reload`
+5. Use `/fstack` to inspect frame hierarchy
+6. Use BugSack or BugGrabber addons to catch errors
+
+## Testing Checklist
+
+- [ ] Test on multiple classes (different power types)
+- [ ] Test spec changes
+- [ ] Test in/out of combat
+- [ ] Test while dead/ghost
+- [ ] Test in dungeons/raids
+- [ ] Test with UI scale changes
+- [ ] Test /reload and fresh login
+- [ ] Test with other addons enabled/disabled
+
+## Resources
+
+- **Wowpedia**: https://wowpedia.fandom.com/wiki/World_of_Warcraft_API
+- **WoW Interface**: https://www.wowinterface.com/
+- **CurseForge**: For addon distribution
+- **Townlong Yak**: API documentation and examples
+- **GitHub WoW UI Source**: https://github.com/Gethe/wow-ui-source
+
+## Edit Mode Integration
+
+### Overview
+Edit Mode allows players to move and customize UI elements using Blizzard's built-in system (ESC > Edit Mode).
+
+### Implementation Requirements
+```lua
+-- 1. Register your frame as an Edit Mode system
+local editModeManager = {
+    name = "MoePower",
+    -- Called when entering edit mode
+    OnEditModeEnter = function(self)
+        -- Show drag outline, enable movement
+    end,
+    -- Called when exiting edit mode
+    OnEditModeExit = function(self)
+        -- Save position, hide drag outline
+    end,
+}
+
+-- 2. Make frame movable in Edit Mode
+frame:SetMovable(true)
+frame:EnableMouse(true)
+frame:RegisterForDrag("LeftButton")
+
+frame:SetScript("OnDragStart", function(self)
+    if EditModeManagerFrame:IsEditModeActive() then
+        self:StartMoving()
+    end
+end)
+
+frame:SetScript("OnDragStop", function(self)
+    self:StopMovingOrSizing()
+    -- Save position to SavedVariables
+    local point, _, relativePoint, x, y = self:GetPoint()
+    MoePowerDB.position = {
+        point = point,
+        relativePoint = relativePoint,
+        x = x,
+        y = y
+    }
+end)
+
+-- 3. Register with Edit Mode Manager (Dragonflight+)
+if EditModeManagerFrame then
+    EditModeManagerFrame:RegisterSystemFrame(frame)
+end
+```
+
+### Edit Mode API Functions
+```lua
+EditModeManagerFrame:IsEditModeActive() -- Check if Edit Mode is active
+EditModeManagerFrame:EnterEditMode() -- Enter Edit Mode programmatically
+EditModeManagerFrame:ExitEditMode() -- Exit Edit Mode
+```
+
+### Position Restoration
+```lua
+-- Restore saved position on load
+local function RestorePosition()
+    local pos = MoePowerDB.position
+    if pos then
+        frame:ClearAllPoints()
+        frame:SetPoint(
+            pos.point or "CENTER",
+            UIParent,
+            pos.relativePoint or "CENTER",
+            pos.x or 0,
+            pos.y or -200
+        )
+    end
+end
+
+-- Call after PLAYER_LOGIN
+frame:RegisterEvent("PLAYER_LOGIN")
+frame:SetScript("OnEvent", function(self, event)
+    if event == "PLAYER_LOGIN" then
+        RestorePosition()
+    end
+end)
+```
+
+### Visual Feedback in Edit Mode
+```lua
+-- Optional: Show border when in Edit Mode
+local editBorder = frame:CreateTexture(nil, "OVERLAY")
+editBorder:SetAllPoints(frame)
+editBorder:SetColorTexture(1, 1, 1, 0.3)
+editBorder:Hide()
+
+-- Show/hide border based on Edit Mode state
+hooksecurefunc(EditModeManagerFrame, "EnterEditMode", function()
+    editBorder:Show()
+end)
+
+hooksecurefunc(EditModeManagerFrame, "ExitEditMode", function()
+    editBorder:Hide()
+end)
+```
+
+## Project Goals
+
+MoePower aims to provide:
+1. Clean, minimal class power display
+2. **Movable via Edit Mode system** - Players can position it anywhere
+3. Customizable position and appearance
+4. Support for all class power types
+5. Smooth animations and updates
+6. Low performance impact
+7. Easy configuration through Edit Mode
