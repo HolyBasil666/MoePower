@@ -5,6 +5,9 @@ local addonName = "MoePower"
 local frame
 local essenceOrbs = {}
 
+-- Saved variables (initialized by WoW)
+MoePowerDB = MoePowerDB or {}
+
 -- Evoker essence color (cyan/teal)
 local ESSENCE_COLOR = {r = 0.3, g = 0.8, b = 0.9}
 
@@ -16,7 +19,7 @@ local function CreateEssenceOrbs()
     end
 
     local orbSize = 28
-    local arcRadius = 130  -- Distance from center (increased for wider spread)
+    local arcRadius = 150  -- Distance from center (increased for wider spread)
     local arcSpan = 60     -- Total degrees of arc (flatter curve)
     local startAngle = 90 + (arcSpan / 2)  -- Start from top-left
 
@@ -73,6 +76,82 @@ local function UpdateEssence()
     end
 end
 
+-- Save frame position
+local function SavePosition()
+    local point, _, relativePoint, x, y = frame:GetPoint()
+    MoePowerDB.position = {
+        point = point,
+        relativePoint = relativePoint,
+        x = x,
+        y = y
+    }
+end
+
+-- Load saved position
+local function LoadPosition()
+    if MoePowerDB.position then
+        local pos = MoePowerDB.position
+        frame:ClearAllPoints()
+        frame:SetPoint(pos.point, UIParent, pos.relativePoint, pos.x, pos.y)
+    end
+end
+
+-- Edit Mode integration
+local function SetupEditMode()
+    -- Make frame movable
+    frame:SetMovable(true)
+    frame:EnableMouse(false)  -- Disabled by default
+
+    -- Create draggable overlay for Edit Mode
+    local dragFrame = CreateFrame("Frame", nil, frame)
+    dragFrame:SetAllPoints(frame)
+    dragFrame:EnableMouse(true)
+    dragFrame:SetFrameStrata("HIGH")
+    dragFrame:Hide()  -- Hidden by default
+
+    -- Make it obvious when in Edit Mode
+    local bg = dragFrame:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints(dragFrame)
+    bg:SetColorTexture(0, 1, 0, 0.2)  -- Semi-transparent green
+
+    local label = dragFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    label:SetPoint("CENTER")
+    label:SetText("MoePower")
+
+    -- Drag functionality
+    dragFrame:SetScript("OnMouseDown", function(self, button)
+        if button == "LeftButton" then
+            frame:StartMoving()
+        end
+    end)
+
+    dragFrame:SetScript("OnMouseUp", function(self, button)
+        if button == "LeftButton" then
+            frame:StopMovingOrSizing()
+            SavePosition()
+        end
+    end)
+
+    -- Store reference to drag frame
+    frame.dragFrame = dragFrame
+
+    -- Check initial Edit Mode state
+    if EditModeManagerFrame and EditModeManagerFrame:IsEditModeActive() then
+        dragFrame:Show()
+    end
+end
+
+-- Handle Edit Mode state changes
+local function OnEditModeChange(isEditMode)
+    if frame and frame.dragFrame then
+        if isEditMode then
+            frame.dragFrame:Show()
+        else
+            frame.dragFrame:Hide()
+        end
+    end
+end
+
 -- Initialize addon
 local function Initialize()
     -- Check if player is an Evoker
@@ -85,7 +164,13 @@ local function Initialize()
     -- Create main frame
     frame = CreateFrame("Frame", "MoePowerFrame", UIParent)
     frame:SetSize(200, 200)  -- Larger to contain orbs
-    frame:SetPoint("CENTER", UIParent, "CENTER", 0, -100)  -- Moved down from center
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, -65)  -- Default position
+
+    -- Load saved position if it exists
+    LoadPosition()
+
+    -- Setup Edit Mode integration
+    SetupEditMode()
 
     -- Create essence orbs
     CreateEssenceOrbs()
@@ -95,7 +180,7 @@ local function Initialize()
 
     frame:Show()
 
-    print("|cff00ff00MoePower:|r Evoker HUD loaded with Essence orbs")
+    print("|cff00ff00MoePower:|r Evoker HUD loaded with Essence orbs (Edit Mode enabled)")
 end
 
 -- Event handler
@@ -103,6 +188,7 @@ local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("UNIT_POWER_FREQUENT")
 eventFrame:RegisterEvent("UNIT_MAXPOWER")
+eventFrame:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
 eventFrame:SetScript("OnEvent", function(self, event, unit, powerType)
     if event == "PLAYER_LOGIN" then
         Initialize()
@@ -110,6 +196,11 @@ eventFrame:SetScript("OnEvent", function(self, event, unit, powerType)
         -- Only update for player's essence changes
         if unit == "player" and powerType == "ESSENCE" then
             UpdateEssence()
+        end
+    elseif event == "EDIT_MODE_LAYOUTS_UPDATED" then
+        -- Check if Edit Mode is active
+        if EditModeManagerFrame then
+            OnEditModeChange(EditModeManagerFrame:IsEditModeActive())
         end
     end
 end)
