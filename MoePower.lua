@@ -31,15 +31,17 @@ local function CreateEssenceOrbs()
         local x = arcRadius * math.cos(radian)
         local y = arcRadius * math.sin(radian)
 
-        -- Create orb frame with model
+        -- Create orb frame with model (matching WeakAuras setup)
         local orb = CreateFrame("PlayerModel", nil, frame)
         orb:SetSize(orbSize, orbSize)
         orb:SetPoint("CENTER", frame, "CENTER", x, y)
 
-        -- Set up the model using file ID
-        orb:SetDisplayInfo(4417910)
+        -- Set up the model using file ID from WeakAura
+        orb:SetModel(122968)  -- spells/arcanepower_state_chest.m2
         orb:SetCamera(0)
         orb:SetPosition(0, 0, 0)
+        orb:SetFacing(math.rad(90))
+        orb:SetModelScale(1)
 
         -- Store references
         essenceOrbs[i] = {
