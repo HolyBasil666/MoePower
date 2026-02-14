@@ -31,31 +31,21 @@ local function CreateEssenceOrbs()
         local x = arcRadius * math.cos(radian)
         local y = arcRadius * math.sin(radian)
 
-        -- Create orb frame with model (matching WeakAuras setup)
-        local orb = CreateFrame("PlayerModel", nil, frame)
+        -- Create orb frame
+        local orb = CreateFrame("Frame", nil, frame)
         orb:SetSize(orbSize, orbSize)
         orb:SetPoint("CENTER", frame, "CENTER", x, y)
 
-        -- Set up the model using file ID from WeakAura
-        orb:SetModel(122968)  -- spells/arcanepower_state_chest.m2
-
-        -- Match WeakAuras settings more closely
-        orb:SetCamera(0)
-        orb:SetPosition(0, 0, 0)
-        orb:SetFacing(math.rad(90))
-
-        -- Try larger scale to make it visible
-        orb:SetModelScale(40)  -- Match WeakAura's model_st_us: 40
-
-        -- Animate the model (sequence 1)
-        if orb.SetSequence then
-            orb:SetSequence(1)
-            orb:SetSequenceTime(1, 0)
-        end
+        -- Orb texture (ring)
+        local ring = orb:CreateTexture(nil, "ARTWORK")
+        ring:SetAllPoints(orb)
+        ring:SetTexture("Interface\\PlayerFrame\\UI-PlayerFrame-DeathKnight-Ring")
+        ring:SetVertexColor(ESSENCE_COLOR.r, ESSENCE_COLOR.g, ESSENCE_COLOR.b, 1)
 
         -- Store references
         essenceOrbs[i] = {
-            frame = orb
+            frame = orb,
+            ring = ring
         }
 
         -- Start hidden (will show based on current essence)
