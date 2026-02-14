@@ -68,20 +68,30 @@ local function UpdateEssence()
     end
 
     -- Recalculate positions for current number of orbs
-    local orbSize = 28
     local arcRadius = 70
-    local arcSpan = 140
-    local startAngle = 90 + (arcSpan / 2)
+    local baseArcSpan = 140
 
     -- Position and show only the orbs we need
     for i = 1, maxEssence do
         if i <= currentEssence then
-            -- Calculate position for this orb in a currentEssence-sized arc
             local angle
+
             if currentEssence == 1 then
-                angle = 90  -- Single orb at top center
+                -- Single orb: exact center
+                angle = 90
+            elseif currentEssence % 2 == 1 then
+                -- Odd number: center orb at 90°, others spread symmetrically
+                local middleIndex = math.ceil(currentEssence / 2)
+                local angleStep = baseArcSpan / (currentEssence - 1)
+                local offset = i - middleIndex
+                angle = 90 + (offset * angleStep)
             else
-                angle = startAngle - ((i - 1) * (arcSpan / (currentEssence - 1)))
+                -- Even number: no center orb, symmetric pairs around 90°
+                -- Use narrower arc for even numbers to keep them more centered
+                local effectiveSpan = baseArcSpan * (currentEssence - 1) / currentEssence
+                local angleStep = effectiveSpan / (currentEssence - 1)
+                local offset = i - (currentEssence / 2 + 0.5)
+                angle = 90 + (offset * angleStep)
             end
 
             local radian = math.rad(angle)
