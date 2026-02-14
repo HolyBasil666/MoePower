@@ -59,15 +59,40 @@ local function UpdateEssence()
     local currentEssence = UnitPower("player", Enum.PowerType.Essence)
     local maxEssence = #essenceOrbs
 
-    -- Calculate centered range of orbs to show
-    local startIndex = math.floor((maxEssence - currentEssence) / 2) + 1
-    local endIndex = startIndex + currentEssence - 1
+    if currentEssence == 0 then
+        -- Hide all orbs
+        for i = 1, maxEssence do
+            essenceOrbs[i].frame:Hide()
+        end
+        return
+    end
 
+    -- Recalculate positions for current number of orbs
+    local orbSize = 28
+    local arcRadius = 70
+    local arcSpan = 140
+    local startAngle = 90 + (arcSpan / 2)
+
+    -- Position and show only the orbs we need
     for i = 1, maxEssence do
-        if i >= startIndex and i <= endIndex then
-            essenceOrbs[i].frame:Show()  -- Show centered orb
+        if i <= currentEssence then
+            -- Calculate position for this orb in a currentEssence-sized arc
+            local angle
+            if currentEssence == 1 then
+                angle = 90  -- Single orb at top center
+            else
+                angle = startAngle - ((i - 1) * (arcSpan / (currentEssence - 1)))
+            end
+
+            local radian = math.rad(angle)
+            local x = arcRadius * math.cos(radian)
+            local y = arcRadius * math.sin(radian)
+
+            essenceOrbs[i].frame:ClearAllPoints()
+            essenceOrbs[i].frame:SetPoint("CENTER", frame, "CENTER", x, y)
+            essenceOrbs[i].frame:Show()
         else
-            essenceOrbs[i].frame:Hide()  -- Hide orb
+            essenceOrbs[i].frame:Hide()
         end
     end
 end
