@@ -31,22 +31,31 @@ local function CreateEssenceOrbs()
         local x = arcRadius * math.cos(radian)
         local y = arcRadius * math.sin(radian)
 
-        -- Create orb frame with spell effect model
-        local orb = CreateFrame("PlayerModel", nil, frame)
+        -- Create orb frame
+        local orb = CreateFrame("Frame", nil, frame)
         orb:SetSize(orbSize, orbSize)
         orb:SetPoint("CENTER", frame, "CENTER", x, y)
 
-        -- Set up the model
-        orb:SetModel("Spells/cfx_evoker_livingflame_precast.m2")
-        orb:SetCamera(0)
-        orb:SetPosition(0, 0, 0)
-        orb:SetFacing(0)
-        orb:SetModelScale(1)
-        orb:SetAlpha(1)
+        -- Glow layer (outer)
+        local glow = orb:CreateTexture(nil, "BACKGROUND")
+        glow:SetSize(orbSize * 1.5, orbSize * 1.5)
+        glow:SetPoint("CENTER")
+        glow:SetTexture("Interface\\SpellActivationOverlay\\IconAlert")
+        glow:SetTexCoord(0.00781250, 0.50781250, 0.53515625, 0.78515625)
+        glow:SetVertexColor(ESSENCE_COLOR.r, ESSENCE_COLOR.g, ESSENCE_COLOR.b, 0.5)
+        glow:SetBlendMode("ADD")
+
+        -- Core orb (inner)
+        local core = orb:CreateTexture(nil, "ARTWORK")
+        core:SetAllPoints(orb)
+        core:SetTexture("Interface\\Common\\WhiteIconFrame")
+        core:SetVertexColor(ESSENCE_COLOR.r, ESSENCE_COLOR.g, ESSENCE_COLOR.b, 1)
 
         -- Store references
         essenceOrbs[i] = {
-            frame = orb
+            frame = orb,
+            glow = glow,
+            core = core
         }
 
         -- Start hidden (will show based on current essence)
