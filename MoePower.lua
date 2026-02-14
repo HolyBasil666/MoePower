@@ -20,7 +20,7 @@ local function CreateEssenceOrbs()
     end
 
     local orbSize = 40  -- Model width and height
-    local borderSize = 40  -- Border width and height
+    local borderSize = 32  -- Border width and height
     local arcRadius = 150  -- Distance from center (increased for wider spread)
     local arcSpan = 60     -- Total degrees of arc (flatter curve)
     local startAngle = 90 + (arcSpan / 2)  -- Start from top-left
@@ -75,10 +75,10 @@ local function CreateEssenceOrbs()
         end
         border:SetVertexColor(1, 1, 1, 0.8)  -- White border with slight transparency
 
-        -- Store references
+        -- Store references with clear naming
         essenceOrbs[i] = {
-            frame = orb,
-            border = borderFrame
+            animation = orb,           -- The living flame model
+            background = borderFrame   -- The uf-essence-icon border
         }
 
         -- Start hidden (will show based on current essence)
@@ -98,14 +98,14 @@ local function UpdateEssence()
 
     for i = 1, maxEssence do
         if i >= startIndex and i <= endIndex then
-            essenceOrbs[i].frame:Show()  -- Show centered orb
-            if essenceOrbs[i].border then
-                essenceOrbs[i].border:Show()  -- Show border
+            essenceOrbs[i].animation:Show()  -- Show animation (model)
+            if essenceOrbs[i].background then
+                essenceOrbs[i].background:Show()  -- Show background (border)
             end
         else
-            essenceOrbs[i].frame:Hide()  -- Hide orb
-            if essenceOrbs[i].border then
-                essenceOrbs[i].border:Hide()  -- Hide border
+            essenceOrbs[i].animation:Hide()  -- Hide animation
+            if essenceOrbs[i].background then
+                essenceOrbs[i].background:Hide()  -- Hide background
             end
         end
     end
