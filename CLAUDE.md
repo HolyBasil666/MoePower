@@ -61,30 +61,59 @@ They're loaded during ADDON_LOADED event.
 ## Class Power Systems
 
 ### Power Types (Enum.PowerType)
-Each class uses different power systems:
-- **Mana**: Most casters (Mage, Priest, Warlock, etc.)
-- **Rage**: Warriors, Druids (Bear form)
-- **Energy**: Rogues, Druids (Cat form), Monks
-- **Focus**: Hunters
-- **Runic Power**: Death Knights
-- **Combo Points**: Rogues, Druids (Feral)
-- **Holy Power**: Paladins
-- **Soul Shards**: Warlocks
-- **Chi**: Monks
-- **Maelstrom**: Shamans (Enhancement/Elemental)
-- **Fury**: Demon Hunters
-- **Pain**: Demon Hunters (Vengeance)
-- **Insanity**: Shadow Priests
-- **Arcane Charges**: Arcane Mages
-- **Runes**: Death Knights (6 runes)
+Current power types as of patch 11.0.0+:
+
+| Value | Enum Name | Primary Users | Notes |
+|-------|-----------|---------------|-------|
+| 0 | Mana | Most casters, default for NPCs | Core resource |
+| 1 | Rage | Warriors, Druids (Bear) | Builds through damage |
+| 2 | Focus | Hunters, Hunter pets | Regenerates over time |
+| 3 | Energy | Rogues, Monks, Druids (Cat) | Regenerates over time |
+| 4 | ComboPoints | Rogues, Druids (Feral) | Builder/spender system |
+| 5 | Runes | Death Knights | 6 runes that recharge |
+| 6 | RunicPower | Death Knights | Secondary resource |
+| 7 | SoulShards | Warlocks | Fragment-based resource |
+| 8 | LunarPower | Balance Druids | Astral Power |
+| 9 | HolyPower | Retribution Paladins | Builder/spender |
+| 11 | Maelstrom | Enhancement/Elemental Shamans | Elemental resource |
+| 12 | Chi | Windwalker Monks | Martial resource |
+| 13 | Insanity | Shadow Priests | Void resource |
+| 16 | ArcaneCharges | Arcane Mages | 0-4 charges |
+| 17 | Fury | Havoc Demon Hunters | Primary resource |
+| 18 | Pain | Vengeance Demon Hunters | Tank resource |
+| 19 | Essence | Evokers | Draconic resource |
+| 20-22 | RuneBlood, RuneFrost, RuneUnholy | Death Knights (individual runes) | Added patch 10.0.0 |
+| 25 | AlternateMount | Dragonriding Vigor | Mount-specific |
+| 26 | Balance | Special encounters | Added patch 10.2.7 |
+
+**Deprecated (do not use):**
+- 14: BurningEmbers (removed in Legion)
+- 15: DemonicFury (removed in Legion)
+
+**Important Notes:**
+- Use `Enum.PowerType.Mana`, not `SPELL_POWER_MANA` (deprecated since 7.2.5)
+- Some alternate power types exist for encounters/vehicles
+- Check `UnitPowerType("player")` to detect player's current primary power
 
 ### Key API Functions
 ```lua
 -- Power information
 UnitPower(unit, powerType) -- Current power amount
 UnitPowerMax(unit, powerType) -- Maximum power
-UnitPowerType(unit) -- Returns powerTypeEnum, powerToken, altR, altG, altB
-PowerBarColor[powerType] -- Default Blizzard colors {r, g, b}
+UnitPowerType(unit) -- Returns powerTypeEnum, powerToken, altR, altG, altB, altPowerType
+PowerBarColor[powerType] -- Default Blizzard colors {r, g, b, a}
+
+-- Modern Enum.PowerType usage (DO USE THIS)
+local currentPower = UnitPower("player", Enum.PowerType.Mana)
+local maxPower = UnitPowerMax("player", Enum.PowerType.Mana)
+
+-- Deprecated syntax (DON'T USE THIS)
+-- local power = UnitPower("player", SPELL_POWER_MANA) -- OLD WAY
+
+-- Get player's primary power type
+local powerType, powerToken = UnitPowerType("player")
+-- powerType is the enum number (0 for Mana, 1 for Rage, etc.)
+-- powerToken is the string name ("MANA", "RAGE", etc.)
 
 -- Class and spec
 UnitClass(unit) -- Returns className, classFilename, classID
@@ -92,11 +121,12 @@ GetSpecialization() -- Current spec number (1-4)
 GetSpecializationInfo(specIndex) -- Detailed spec info
 
 -- Events to monitor
-UNIT_POWER_UPDATE -- Fires when power changes
+UNIT_POWER_UPDATE -- Fires when power changes, args: unitTarget, powerType
 UNIT_POWER_FREQUENT -- Fires more frequently for smooth updates
 UNIT_MAXPOWER -- Fires when max power changes
-PLAYER_SPECIALIZATION_CHANGED -- Spec change
+PLAYER_SPECIALIZATION_CHANGED -- Spec change (respec or talent change)
 PLAYER_ENTERING_WORLD -- Login/reload/zone change
+ADDON_LOADED -- Fires when addon loads, args: addonName
 ```
 
 ## UI/Frame Development
