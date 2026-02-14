@@ -62,10 +62,16 @@ local function CreateEssenceOrbs()
         borderFrame:SetPoint("CENTER", orb, "CENTER", 0, 0)
         borderFrame:SetFrameStrata("HIGH")
 
-        -- Border texture - simple circular ring
+        -- Border texture - try atlas first, fallback to standard texture
         local border = borderFrame:CreateTexture(nil, "OVERLAY")
         border:SetAllPoints(borderFrame)
-        border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+
+        -- Try to use atlas texture
+        local success = pcall(border.SetAtlas, border, "uf-essence-icon")
+        if not success then
+            -- Fallback to standard texture
+            border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+        end
         border:SetVertexColor(1, 1, 1, 0.8)  -- White border with slight transparency
 
         -- Store references
