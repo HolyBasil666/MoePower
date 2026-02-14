@@ -56,14 +56,14 @@ local function CreateEssenceOrbs()
         -- Must call Show() for model to render
         orb:Show()
 
-        -- Add border frame overlay
+        -- Add border frame (behind model)
         local borderFrame = CreateFrame("Frame", nil, frame)
         borderFrame:SetSize(orbSize, orbSize)
         borderFrame:SetPoint("CENTER", orb, "CENTER", 0, 0)
-        borderFrame:SetFrameStrata("HIGH")
+        borderFrame:SetFrameStrata("BACKGROUND")  -- Behind model
 
         -- Border texture - try atlas first, fallback to standard texture
-        local border = borderFrame:CreateTexture(nil, "OVERLAY")
+        local border = borderFrame:CreateTexture(nil, "ARTWORK")
         border:SetAllPoints(borderFrame)
 
         -- Try to use atlas texture
