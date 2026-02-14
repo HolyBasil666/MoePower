@@ -31,21 +31,16 @@ local function CreateEssenceOrbs()
         local x = arcRadius * math.cos(radian)
         local y = arcRadius * math.sin(radian)
 
-        -- Create orb frame
-        local orb = CreateFrame("Frame", nil, frame)
+        -- Create orb frame with spell effect model
+        local orb = CreateFrame("PlayerModel", nil, frame)
         orb:SetSize(orbSize, orbSize)
         orb:SetPoint("CENTER", frame, "CENTER", x, y)
-
-        -- Orb texture (single ring)
-        local fill = orb:CreateTexture(nil, "ARTWORK")
-        fill:SetAllPoints(orb)
-        fill:SetTexture("Interface\\PlayerFrame\\UI-PlayerFrame-DeathKnight-Ring")  -- Circular texture
-        fill:SetVertexColor(ESSENCE_COLOR.r, ESSENCE_COLOR.g, ESSENCE_COLOR.b, 1)
+        orb:SetModel("Spells/cfx_evoker_livingflame_precast.m2")
+        orb:SetAlpha(1)
 
         -- Store references
         essenceOrbs[i] = {
-            frame = orb,
-            fill = fill
+            frame = orb
         }
 
         -- Start hidden (will show based on current essence)
