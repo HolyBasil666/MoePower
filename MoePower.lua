@@ -16,7 +16,7 @@ local function CreateEssenceOrbs()
     end
 
     local orbSize = 28
-    local arcRadius = 100  -- Distance from center (increased for wider spread)
+    local arcRadius = 130  -- Distance from center (increased for wider spread)
     local arcSpan = 90     -- Total degrees of arc (flatter curve)
     local startAngle = 90 + (arcSpan / 2)  -- Start from top-left
 
