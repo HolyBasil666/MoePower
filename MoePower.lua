@@ -31,21 +31,31 @@ local function CreateEssenceOrbs()
         local x = arcRadius * math.cos(radian)
         local y = arcRadius * math.sin(radian)
 
-        -- Create orb frame
-        local orb = CreateFrame("Frame", nil, frame)
+        -- Create orb frame with model (WeakAuras method)
+        local orb = CreateFrame("PlayerModel", nil, frame)
         orb:SetSize(orbSize, orbSize)
         orb:SetPoint("CENTER", frame, "CENTER", x, y)
 
-        -- Orb texture (ring)
-        local ring = orb:CreateTexture(nil, "ARTWORK")
-        ring:SetAllPoints(orb)
-        ring:SetTexture("Interface\\PlayerFrame\\UI-PlayerFrame-DeathKnight-Ring")
-        ring:SetVertexColor(ESSENCE_COLOR.r, ESSENCE_COLOR.g, ESSENCE_COLOR.b, 1)
+        -- CRITICAL: Keep model loaded even when hidden
+        orb:SetKeepModelOnHide(true)
+
+        -- Set up the model using WeakAuras method
+        local modelId = 122968
+        pcall(orb.SetModel, orb, modelId)
+
+        -- Clear any previous transforms
+        orb:ClearTransform()
+
+        -- Use old API (matching WeakAura's api: false setting)
+        orb:SetPosition(0, 0, 0)  -- model_z, model_x, model_y
+        orb:SetFacing(math.rad(90))  -- rotation
+
+        -- Must call Show() for model to render
+        orb:Show()
 
         -- Store references
         essenceOrbs[i] = {
-            frame = orb,
-            ring = ring
+            frame = orb
         }
 
         -- Start hidden (will show based on current essence)
