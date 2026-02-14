@@ -20,7 +20,7 @@ local function CreateEssenceOrbs()
     end
 
     local orbSize = 40  -- Model width and height
-    local borderSize = 32  -- Border width and height
+    local borderSize = 25  -- Border width and height
     local arcRadius = 150  -- Distance from center (increased for wider spread)
     local arcSpan = 60     -- Total degrees of arc (flatter curve)
     local startAngle = 90 + (arcSpan / 2)  -- Start from top-left
@@ -60,7 +60,7 @@ local function CreateEssenceOrbs()
         -- Add border frame (behind model)
         local borderFrame = CreateFrame("Frame", nil, frame)
         borderFrame:SetSize(borderSize, borderSize)
-        borderFrame:SetPoint("CENTER", orb, "CENTER", 0, 0)
+        borderFrame:SetPoint("CENTER", orb, "CENTER", -5, 0)  -- 5px left offset
         borderFrame:SetFrameStrata("BACKGROUND")  -- Behind model
 
         -- Border texture - try atlas first, fallback to standard texture
