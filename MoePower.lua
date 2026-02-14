@@ -31,28 +31,19 @@ local function CreateEssenceOrbs()
         local x = arcRadius * math.cos(radian)
         local y = arcRadius * math.sin(radian)
 
-        -- Create orb frame
-        local orb = CreateFrame("Frame", nil, frame)
+        -- Create orb frame with model
+        local orb = CreateFrame("PlayerModel", nil, frame)
         orb:SetSize(orbSize, orbSize)
         orb:SetPoint("CENTER", frame, "CENTER", x, y)
 
-        -- Background circle (solid)
-        local bg = orb:CreateTexture(nil, "BACKGROUND")
-        bg:SetAllPoints(orb)
-        bg:SetColorTexture(ESSENCE_COLOR.r * 0.3, ESSENCE_COLOR.g * 0.3, ESSENCE_COLOR.b * 0.3, 1)
-
-        -- Main circle texture
-        local icon = orb:CreateTexture(nil, "ARTWORK")
-        icon:SetSize(orbSize * 0.8, orbSize * 0.8)
-        icon:SetPoint("CENTER")
-        icon:SetTexture("Interface\\COMMON\\Indicator-Yellow")
-        icon:SetVertexColor(ESSENCE_COLOR.r, ESSENCE_COLOR.g, ESSENCE_COLOR.b, 1)
+        -- Set up the model using file ID
+        orb:SetDisplayInfo(4417910)
+        orb:SetCamera(0)
+        orb:SetPosition(0, 0, 0)
 
         -- Store references
         essenceOrbs[i] = {
-            frame = orb,
-            bg = bg,
-            icon = icon
+            frame = orb
         }
 
         -- Start hidden (will show based on current essence)
