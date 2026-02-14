@@ -100,7 +100,8 @@ end
 local function SetupEditMode()
     -- Make frame movable
     frame:SetMovable(true)
-    frame:EnableMouse(false)  -- Disabled by default
+    frame:EnableMouse(true)
+    frame:SetClampedToScreen(true)
 
     -- Create draggable overlay for Edit Mode
     local dragFrame = CreateFrame("Frame", nil, frame)
@@ -112,11 +113,12 @@ local function SetupEditMode()
     -- Make it obvious when in Edit Mode
     local bg = dragFrame:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(dragFrame)
-    bg:SetColorTexture(0, 1, 0, 0.2)  -- Semi-transparent green
+    bg:SetColorTexture(0, 1, 0, 0.3)  -- Semi-transparent green
 
-    local label = dragFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    local label = dragFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     label:SetPoint("CENTER")
     label:SetText("MoePower")
+    label:SetTextColor(1, 1, 1, 1)
 
     -- Drag functionality
     dragFrame:SetScript("OnMouseDown", function(self, button)
@@ -135,20 +137,33 @@ local function SetupEditMode()
     -- Store reference to drag frame
     frame.dragFrame = dragFrame
 
-    -- Check initial Edit Mode state
-    if EditModeManagerFrame and EditModeManagerFrame:IsEditModeActive() then
-        dragFrame:Show()
-    end
-end
+    -- Hook into Edit Mode manager if it exists
+    if EditModeManagerFrame then
+        hooksecurefunc(EditModeManagerFrame, "EnterEditMode", function()
+            print("|cff00ff00MoePower:|r Edit Mode entered")
+            if frame and frame.dragFrame then
+                frame.dragFrame:Show()
+            end
+        end)
 
--- Handle Edit Mode state changes
-local function OnEditModeChange(isEditMode)
-    if frame and frame.dragFrame then
-        if isEditMode then
-            frame.dragFrame:Show()
-        else
-            frame.dragFrame:Hide()
+        hooksecurefunc(EditModeManagerFrame, "ExitEditMode", function()
+            print("|cff00ff00MoePower:|r Edit Mode exited")
+            if frame and frame.dragFrame then
+                frame.dragFrame:Hide()
+            end
+        end)
+
+        -- Check if already in Edit Mode
+        if EditModeManagerFrame:IsEditModeActive() then
+            print("|cff00ff00MoePower:|r Already in Edit Mode")
+            dragFrame:Show()
         end
+    else
+        print("|cff00ff00MoePower:|r EditModeManagerFrame not found - using fallback")
+        -- Fallback: always show a small handle
+        dragFrame:SetSize(80, 30)
+        dragFrame:SetPoint("CENTER", frame, "BOTTOM", 0, 0)
+        dragFrame:Show()
     end
 end
 
@@ -188,7 +203,6 @@ local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("UNIT_POWER_FREQUENT")
 eventFrame:RegisterEvent("UNIT_MAXPOWER")
-eventFrame:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
 eventFrame:SetScript("OnEvent", function(self, event, unit, powerType)
     if event == "PLAYER_LOGIN" then
         Initialize()
@@ -196,11 +210,6 @@ eventFrame:SetScript("OnEvent", function(self, event, unit, powerType)
         -- Only update for player's essence changes
         if unit == "player" and powerType == "ESSENCE" then
             UpdateEssence()
-        end
-    elseif event == "EDIT_MODE_LAYOUTS_UPDATED" then
-        -- Check if Edit Mode is active
-        if EditModeManagerFrame then
-            OnEditModeChange(EditModeManagerFrame:IsEditModeActive())
         end
     end
 end)
