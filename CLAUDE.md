@@ -9,6 +9,39 @@ This file is for development reference only and won't be loaded by WoW.
 - **Version**: 1.0.0
 - **WoW Interface**: 120000 (The War Within)
 
+## Development Principles
+
+### No External Addon Dependencies
+**CRITICAL RULE**: This addon must NEVER depend on external addons or libraries.
+
+- **Do NOT use**: LibStub, LibSharedMedia, AceAddon, AceDB, WeakAuras APIs, or any other addon libraries
+- **Only use**: Native Blizzard WoW API functions and built-in UI elements
+- **Assets**: Only use Blizzard game files (model IDs, atlas textures, Interface\\ paths)
+- **TOC file**: Keep `## RequiredDeps:` empty
+
+**Why**: This ensures the addon:
+1. Works standalone without requiring users to install other addons
+2. Has minimal performance overhead
+3. Won't break if other addons are updated/removed
+4. Is easier to maintain and debug
+
+**Examples of acceptable vs. unacceptable code**:
+```lua
+-- GOOD: Native Blizzard atlas
+local success = pcall(border.SetAtlas, border, "uf-essence-icon")
+
+-- BAD: External library dependency
+local LSM = LibStub("LibSharedMedia-3.0")
+local texture = LSM:Fetch("texture", "SomeTexture")
+
+-- GOOD: Native WoW model file ID
+local modelId = 4417910  -- spells/cfx_evoker_livingflame_precast.m2
+pcall(orb.SetModel, orb, modelId)
+
+-- BAD: WeakAuras API
+WeakAuras.ScanEvents("UNIT_POWER_UPDATE")
+```
+
 ## Key File Structure
 
 ### MoePower.toc

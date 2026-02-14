@@ -1,114 +1,35 @@
--- MoePower: Class Power HUD
--- Starting with Evoker class
+-- MoePower: Class Power HUD Framework
+-- Modular architecture supporting multiple classes
 
-local addonName = "MoePower"
+local addonName, MoePower = ...
+
+-- Initialize addon namespace
+MoePower = MoePower or {}
 local frame
-local essenceOrbs = {}
+local powerOrbs = {}
+local activeModule
 
 -- Saved variables (initialized by WoW)
 MoePowerDB = MoePowerDB or {}
 
 -- Constants
-local ESSENCE_COLOR = {r = 0.3, g = 0.8, b = 0.9}  -- Evoker essence color (cyan/teal)
 local GRID_SIZE = 10  -- Snap to grid every 10 pixels
 
--- Create essence orbs in arc formation
-local function CreateEssenceOrbs()
-    local maxEssence = UnitPowerMax("player", Enum.PowerType.Essence)
-    if maxEssence == 0 then
-        maxEssence = 6  -- Default fallback
-    end
+-- Class module registry
+local classModules = {}
 
-    local orbSize = 40  -- Model width and height
-    local borderSize = 25  -- Border width and height
-    local arcRadius = 150  -- Distance from center (increased for wider spread)
-    local arcSpan = 60     -- Total degrees of arc (flatter curve)
-    local startAngle = 90 + (arcSpan / 2)  -- Start from top-left
-
-    for i = 1, maxEssence do
-        -- Calculate position in arc
-        local angle = startAngle - ((i - 1) * (arcSpan / (maxEssence - 1)))
-        local radian = math.rad(angle)
-        local x = arcRadius * math.cos(radian)
-        local y = arcRadius * math.sin(radian)
-
-        -- Create orb frame with model (WeakAuras method)
-        local orb = CreateFrame("PlayerModel", nil, frame)
-        orb:SetSize(orbSize, orbSize)
-        orb:SetPoint("CENTER", frame, "CENTER", x, y)
-
-        -- CRITICAL: Keep model loaded even when hidden
-        orb:SetKeepModelOnHide(true)
-
-        -- Set up the model using living flame spell effect
-        local modelId = 4417910  -- spells/cfx_evoker_livingflame_precast.m2
-        pcall(orb.SetModel, orb, modelId)
-
-        -- Clear any previous transforms
-        orb:ClearTransform()
-
-        -- Use old API (matching WeakAura's api: false setting)
-        orb:SetPosition(0, 0, 0)  -- model_z, model_x, model_y
-        orb:SetFacing(math.rad(90))  -- rotation
-
-        -- Set transparency
-        orb:SetAlpha(0.5)
-
-        -- Must call Show() for model to render
-        orb:Show()
-
-        -- Add border frame (behind model)
-        local borderFrame = CreateFrame("Frame", nil, frame)
-        borderFrame:SetSize(borderSize, borderSize)
-        borderFrame:SetPoint("CENTER", orb, "CENTER", -5, 0)  -- 5px left offset
-        borderFrame:SetFrameStrata("BACKGROUND")  -- Behind model
-
-        -- Border texture - try atlas first, fallback to standard texture
-        local border = borderFrame:CreateTexture(nil, "ARTWORK")
-        border:SetAllPoints(borderFrame)
-
-        -- Try to use atlas texture
-        local success = pcall(border.SetAtlas, border, "uf-essence-icon")
-        if not success then
-            -- Fallback to standard texture
-            border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-        end
-        border:SetVertexColor(1, 1, 1, 0.8)  -- White border with slight transparency
-
-        -- Store references with clear naming
-        essenceOrbs[i] = {
-            animation = orb,           -- The living flame model
-            background = borderFrame   -- The uf-essence-icon border
-        }
-
-        -- Start hidden (will show based on current essence)
-        orb:Hide()
+-- Register a class module
+function MoePower:RegisterClassModule(module)
+    if module.className then
+        classModules[module.className] = module
+        -- print("|cff00ff00MoePower:|r Registered module for " .. module.className)
     end
 end
 
--- Update orb display based on current essence
-local function UpdateEssence()
-    local currentEssence = UnitPower("player", Enum.PowerType.Essence)
-    local maxEssence = #essenceOrbs
-
-    -- Calculate centered range of orbs to show
-    -- For max=5: 1 essence shows pos 3, 2 shows 2-3, 3 shows 2-4, etc.
-    local startIndex = math.floor((maxEssence - currentEssence) / 2) + 1
-    local endIndex = startIndex + currentEssence - 1
-
-    for i = 1, maxEssence do
-        if i >= startIndex and i <= endIndex then
-            essenceOrbs[i].animation:Show()  -- Show animation (model)
-            if essenceOrbs[i].background then
-                essenceOrbs[i].background:Show()  -- Show background (border)
-            end
-        else
-            essenceOrbs[i].animation:Hide()  -- Hide animation
-            if essenceOrbs[i].background then
-                essenceOrbs[i].background:Hide()  -- Hide background
-            end
-        end
-    end
+-- Get the active class module
+local function GetClassModule()
+    local _, classFilename = UnitClass("player")
+    return classModules[classFilename]
 end
 
 -- Snap coordinate to grid
@@ -156,7 +77,7 @@ local function SetupEditMode()
     -- Create draggable overlay for Edit Mode (covers orb area)
     local dragFrame = CreateFrame("Frame", nil, frame)
     dragFrame:SetSize(220, 150)  -- Taller to reach horizontal center line
-    dragFrame:SetPoint("CENTER", frame, "CENTER", 0, 140)  -- Position where orbs are
+    dragFrame:SetPoint("CENTER", frame, "CENTER", 0, 135)  -- Position where orbs are
     dragFrame:EnableMouse(true)
     dragFrame:SetFrameStrata("HIGH")
     dragFrame:Hide()  -- Hidden by default
@@ -218,19 +139,28 @@ local function SetupEditMode()
     end
 end
 
+-- Update power display (called by event handler)
+local function UpdatePower()
+    if activeModule and activeModule.UpdatePower then
+        activeModule:UpdatePower(powerOrbs)
+    end
+end
+
 -- Initialize addon
 local function Initialize()
-    -- Check if player is an Evoker
-    local _, classFilename = UnitClass("player")
-    if classFilename ~= "EVOKER" then
-        print("|cff00ff00MoePower:|r Currently only supports Evoker class")
+    -- Get the class module for this character
+    activeModule = GetClassModule()
+
+    if not activeModule then
+        local _, classFilename = UnitClass("player")
+        print("|cff00ff00MoePower:|r No module found for " .. (classFilename or "Unknown") .. " class")
         return
     end
 
     -- Create main frame
     frame = CreateFrame("Frame", "MoePowerFrame", UIParent)
     frame:SetSize(200, 200)  -- Larger to contain orbs
-    frame:SetPoint("CENTER", UIParent, "CENTER", 0, -65)  -- Default position
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, -70)  -- Default position
 
     -- Load saved position if it exists
     LoadPosition()
@@ -238,15 +168,17 @@ local function Initialize()
     -- Setup Edit Mode integration
     SetupEditMode()
 
-    -- Create essence orbs
-    CreateEssenceOrbs()
+    -- Create power display using the class module
+    if activeModule.CreateOrbs then
+        powerOrbs = activeModule:CreateOrbs(frame)
+    end
 
     -- Initial update
-    UpdateEssence()
+    UpdatePower()
 
     frame:Show()
 
-    print("|cff00ff00MoePower:|r Evoker HUD loaded with Essence orbs (Edit Mode enabled)")
+    print("|cff00ff00MoePower:|r " .. activeModule.className .. " HUD loaded (Edit Mode enabled)")
 end
 
 -- Event handler
@@ -258,9 +190,13 @@ eventFrame:SetScript("OnEvent", function(self, event, unit, powerType)
     if event == "PLAYER_LOGIN" then
         Initialize()
     elseif event == "UNIT_POWER_FREQUENT" or event == "UNIT_MAXPOWER" then
-        -- Only update for player's essence changes
-        if unit == "player" and powerType == "ESSENCE" then
-            UpdateEssence()
+        -- Only update for player's power changes
+        if unit == "player" and activeModule and activeModule.powerType then
+            -- Check if this is the power type we're tracking
+            local powerTypeName = powerType or ""
+            if powerTypeName:upper() == "ESSENCE" and activeModule.powerType == Enum.PowerType.Essence then
+                UpdatePower()
+            end
         end
     end
 end)

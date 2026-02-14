@@ -27,3 +27,7 @@ releases/
 *.png
 *.jpg
 *.jpeg
+
+# Reference materials from other addons (WeakAuras, SharedMedia, etc.)
+MoePower Reference/
+reference/
