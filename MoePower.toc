@@ -1,0 +1,11 @@
+## Interface: 120000
+## Title: MoePower
+## Notes: Moe's Class Power HUD
+## Author: HolyBasil666
+## Version: 1.0.0
+## RequiredDeps:
+## X-Curse-Project-ID: 999999
+## SavedVariables:
+## SavedVariablesPerCharacter:
+
+MoePower.lua

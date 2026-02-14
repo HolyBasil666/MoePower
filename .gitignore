@@ -1,0 +1,24 @@
+# WoW addon gitignore
+
+# Backup files
+*.bak
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.sublime-*
+*.swp
+*.swo
+
+# Packaged releases
+*.zip
+releases/
+
+# Temporary files
+*.tmp

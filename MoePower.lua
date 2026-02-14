@@ -1,0 +1,1 @@
+print("MoePower successfully loaded!")
