@@ -36,16 +36,22 @@ local function CreateEssenceOrbs()
         orb:SetSize(orbSize, orbSize)
         orb:SetPoint("CENTER", frame, "CENTER", x, y)
 
-        -- Simple circular essence icon
+        -- Background circle (solid)
+        local bg = orb:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints(orb)
+        bg:SetColorTexture(ESSENCE_COLOR.r * 0.3, ESSENCE_COLOR.g * 0.3, ESSENCE_COLOR.b * 0.3, 1)
+
+        -- Main circle texture
         local icon = orb:CreateTexture(nil, "ARTWORK")
-        icon:SetAllPoints(orb)
-        icon:SetTexture("Interface\\AddOns\\Blizzard_UnitFrame\\UI-HUD-UnitFrame-Player-CombatIcon")
-        icon:SetTexCoord(0, 1, 0, 1)
+        icon:SetSize(orbSize * 0.8, orbSize * 0.8)
+        icon:SetPoint("CENTER")
+        icon:SetTexture("Interface\\COMMON\\Indicator-Yellow")
         icon:SetVertexColor(ESSENCE_COLOR.r, ESSENCE_COLOR.g, ESSENCE_COLOR.b, 1)
 
         -- Store references
         essenceOrbs[i] = {
             frame = orb,
+            bg = bg,
             icon = icon
         }
 
