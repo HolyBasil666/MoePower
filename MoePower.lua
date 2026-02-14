@@ -19,7 +19,8 @@ local function CreateEssenceOrbs()
         maxEssence = 6  -- Default fallback
     end
 
-    local orbSize = 40  -- Width and height
+    local orbSize = 40  -- Model width and height
+    local borderSize = 40  -- Border width and height
     local arcRadius = 150  -- Distance from center (increased for wider spread)
     local arcSpan = 60     -- Total degrees of arc (flatter curve)
     local startAngle = 90 + (arcSpan / 2)  -- Start from top-left
@@ -58,7 +59,7 @@ local function CreateEssenceOrbs()
 
         -- Add border frame (behind model)
         local borderFrame = CreateFrame("Frame", nil, frame)
-        borderFrame:SetSize(orbSize, orbSize)
+        borderFrame:SetSize(borderSize, borderSize)
         borderFrame:SetPoint("CENTER", orb, "CENTER", 0, 0)
         borderFrame:SetFrameStrata("BACKGROUND")  -- Behind model
 
