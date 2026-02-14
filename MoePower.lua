@@ -159,8 +159,9 @@ local function Initialize()
 
     -- Create main frame
     frame = CreateFrame("Frame", "MoePowerFrame", UIParent)
-    frame:SetSize(200, 200)  -- Larger to contain orbs
+    frame:SetSize(400, 400)  -- Large enough for arc radius of 150
     frame:SetPoint("CENTER", UIParent, "CENTER", 0, -70)  -- Default position
+    frame:SetFrameStrata("MEDIUM")
 
     -- Load saved position if it exists
     LoadPosition()

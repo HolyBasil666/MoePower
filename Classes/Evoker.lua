@@ -9,16 +9,15 @@ local EvokerModule = {
 
     -- Visual settings
     config = {
-        orbSize = 40,           -- Model width and height
-        borderSize = 32,        -- Border width and height
+        orbSize = 40,           -- Orb width and height
         arcRadius = 150,        -- Distance from center
-        arcSpan = 60,           -- Total degrees of arc
-        modelId = 4417910,      -- spells/cfx_evoker_livingflame_precast.m2
-        modelAlpha = 0.5,       -- Transparency
-        borderAtlas = "uf-essence-icon",
-        borderFallback = "Interface\\Minimap\\MiniMap-TrackingBorder",
-        borderColor = {r = 1, g = 1, b = 1, a = 0.8},
-        borderOffset = -1       -- Left offset for border
+        arcSpan = 55,           -- Total degrees of arc
+        backgroundAtlas = "uf-essence-bg-active",  -- Background texture
+        foregroundAtlas = "uf-essence-icon",       -- Foreground fill texture
+        orbFallback = "Interface\\Minimap\\MiniMap-TrackingBorder",
+        orbColor = {r = 0.3, g = 0.8, b = 0.9, a = 1},  -- Cyan/teal for essence (original)
+        emptyColor = {r = 0.5, g = 0.5, b = 0.5, a = 0.4},  -- Gray for inactive
+        glowColor = {r = 0.5, g = 1, b = 1, a = 0.6}   -- Cyan glow (original)
     }
 }
 
@@ -40,56 +39,37 @@ function EvokerModule:CreateOrbs(frame)
         local x = cfg.arcRadius * math.cos(radian)
         local y = cfg.arcRadius * math.sin(radian)
 
-        -- Create orb frame with model
-        local orb = CreateFrame("PlayerModel", nil, frame)
-        orb:SetSize(cfg.orbSize, cfg.orbSize)
-        orb:SetPoint("CENTER", frame, "CENTER", x, y)
+        -- Create orb container frame
+        local orbFrame = CreateFrame("Frame", nil, frame)
+        orbFrame:SetSize(cfg.orbSize, cfg.orbSize)
+        orbFrame:SetPoint("CENTER", frame, "CENTER", x, y)
 
-        -- CRITICAL: Keep model loaded even when hidden
-        orb:SetKeepModelOnHide(true)
-
-        -- Set up the model using living flame spell effect
-        pcall(orb.SetModel, orb, cfg.modelId)
-
-        -- Clear any previous transforms
-        orb:ClearTransform()
-
-        -- Use old API (matching WeakAura's api: false setting)
-        orb:SetPosition(0, 0, 0)  -- model_z, model_x, model_y
-        orb:SetFacing(math.rad(90))  -- rotation
-
-        -- Set transparency
-        orb:SetAlpha(cfg.modelAlpha)
-
-        -- Must call Show() for model to render
-        orb:Show()
-
-        -- Add border frame (behind model)
-        local borderFrame = CreateFrame("Frame", nil, frame)
-        borderFrame:SetSize(cfg.borderSize, cfg.borderSize)
-        borderFrame:SetPoint("CENTER", orb, "CENTER", cfg.borderOffset, 0)
-        borderFrame:SetFrameStrata("BACKGROUND")  -- Behind model
-
-        -- Border texture - try atlas first, fallback to standard texture
-        local border = borderFrame:CreateTexture(nil, "ARTWORK")
-        border:SetAllPoints(borderFrame)
-
-        -- Try to use atlas texture
-        local success = pcall(border.SetAtlas, border, cfg.borderAtlas)
-        if not success then
-            -- Fallback to standard texture
-            border:SetTexture(cfg.borderFallback)
+        -- Background essence texture (always visible)
+        local background = orbFrame:CreateTexture(nil, "BACKGROUND")
+        background:SetAllPoints(orbFrame)
+        local bgSuccess = pcall(background.SetAtlas, background, cfg.backgroundAtlas)
+        if not bgSuccess then
+            background:SetColorTexture(0.2, 0.2, 0.2, 0.5)
         end
-        border:SetVertexColor(cfg.borderColor.r, cfg.borderColor.g, cfg.borderColor.b, cfg.borderColor.a)
 
-        -- Store references with clear naming
+        -- Foreground essence fill texture (shows when active)
+        local foreground = orbFrame:CreateTexture(nil, "ARTWORK")
+        foreground:SetAllPoints(orbFrame)
+        local fgSuccess = pcall(foreground.SetAtlas, foreground, cfg.foregroundAtlas)
+        if not fgSuccess then
+            foreground:SetColorTexture(1, 1, 1, 1)
+        end
+
+        -- Store references
         orbs[i] = {
-            animation = orb,           -- The living flame model
-            background = borderFrame   -- The uf-essence-icon border
+            frame = orbFrame,
+            background = background,
+            foreground = foreground,
+            active = false
         }
 
         -- Start hidden (will show based on current essence)
-        orb:Hide()
+        orbFrame:Hide()
     end
 
     return orbs
@@ -100,6 +80,8 @@ function EvokerModule:UpdatePower(orbs)
     local currentPower = UnitPower("player", self.powerType)
     local maxPower = #orbs
 
+    print("|cff00ff00MoePower:|r UpdatePower - Current: " .. currentPower .. " / Max: " .. maxPower)
+
     -- Calculate centered range of orbs to show
     -- For max=5: 1 essence shows pos 3, 2 shows 2-3, 3 shows 2-4, etc.
     local startIndex = math.floor((maxPower - currentPower) / 2) + 1
@@ -107,15 +89,16 @@ function EvokerModule:UpdatePower(orbs)
 
     for i = 1, maxPower do
         if i >= startIndex and i <= endIndex then
-            orbs[i].animation:Show()  -- Show animation (model)
-            if orbs[i].background then
-                orbs[i].background:Show()  -- Show background (border)
-            end
+            -- Show active/filled orb
+            orbs[i].frame:Show()
+            orbs[i].foreground:SetAlpha(1)
+            orbs[i].active = true
+
+            print("|cff00ff00MoePower:|r Showing orb " .. i)
         else
-            orbs[i].animation:Hide()  -- Hide animation
-            if orbs[i].background then
-                orbs[i].background:Hide()  -- Hide background
-            end
+            -- Hide orb completely
+            orbs[i].frame:Hide()
+            orbs[i].active = false
         end
     end
 end

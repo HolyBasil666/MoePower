@@ -7,7 +7,7 @@ This file is for development reference only and won't be loaded by WoW.
 - **Purpose**: Moe's Class Power HUD
 - **Author**: HolyBasil666
 - **Version**: 1.0.0
-- **WoW Interface**: 120000 (The War Within)
+- **WoW Interface**: 120001 (The War Within patch 12.0.1)
 
 ## Development Principles
 
@@ -46,7 +46,7 @@ WeakAuras.ScanEvents("UNIT_POWER_UPDATE")
 
 ### MoePower.toc
 The Table of Contents file tells WoW about your addon:
-- `## Interface:` - WoW version (120000 = The War Within patch 12.0.0)
+- `## Interface:` - WoW version (120001 = The War Within patch 12.0.1)
 - `## Title:` - Display name in addon list
 - `## Notes:` - Description shown in-game
 - `## SavedVariables:` - Global saved variables across characters
