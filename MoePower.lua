@@ -19,7 +19,7 @@ local function CreateEssenceOrbs()
         maxEssence = 6  -- Default fallback
     end
 
-    local orbSize = 28
+    local orbSize = 13  -- Width and height
     local arcRadius = 150  -- Distance from center (increased for wider spread)
     local arcSpan = 60     -- Total degrees of arc (flatter curve)
     local startAngle = 90 + (arcSpan / 2)  -- Start from top-left
@@ -39,8 +39,8 @@ local function CreateEssenceOrbs()
         -- CRITICAL: Keep model loaded even when hidden
         orb:SetKeepModelOnHide(true)
 
-        -- Set up the model using WeakAuras method
-        local modelId = 122968
+        -- Set up the model using living flame spell effect
+        local modelId = 4417910  -- spells/cfx_evoker_livingflame_precast.m2
         pcall(orb.SetModel, orb, modelId)
 
         -- Clear any previous transforms
@@ -49,6 +49,9 @@ local function CreateEssenceOrbs()
         -- Use old API (matching WeakAura's api: false setting)
         orb:SetPosition(0, 0, 0)  -- model_z, model_x, model_y
         orb:SetFacing(math.rad(90))  -- rotation
+
+        -- Set transparency
+        orb:SetAlpha(0.5)
 
         -- Must call Show() for model to render
         orb:Show()
