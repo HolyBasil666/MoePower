@@ -87,18 +87,6 @@ local function Initialize()
     frame:SetSize(200, 200)  -- Larger to contain orbs
     frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)  -- Center of screen
 
-    -- Create center icon texture
-    local icon = frame:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(50, 50)
-    icon:SetPoint("CENTER", frame, "CENTER", 0, 0)
-    icon:SetTexture("Interface\\Icons\\ClassIcon_Evoker")
-
-    -- Create center icon border
-    local border = frame:CreateTexture(nil, "OVERLAY")
-    border:SetSize(50, 50)
-    border:SetPoint("CENTER", frame, "CENTER", 0, 0)
-    border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-
     -- Create essence orbs
     CreateEssenceOrbs()
 
