@@ -1,478 +1,358 @@
-# MoePower - Development Notes
+# MoePower - Development Guide
 
-This file is for development reference only and won't be loaded by WoW.
+**Class Power HUD for World of Warcraft: The War Within**
 
-## Project Overview
-- **Name**: MoePower
-- **Purpose**: Moe's Class Power HUD
-- **Author**: HolyBasil666
+## Project Info
 - **Version**: 1.0.0
-- **WoW Interface**: 120001 (The War Within patch 12.0.1)
+- **Interface**: 120000 (TWW Patch 12.0.0)
+- **Author**: HolyBasil666
+- **Architecture**: Modular class-based framework
 
-## Development Principles
+## Critical Rule: No External Dependencies
 
-### No External Addon Dependencies
-**CRITICAL RULE**: This addon must NEVER depend on external addons or libraries.
+**This addon must NEVER depend on external libraries or addons.**
 
-- **Do NOT use**: LibStub, LibSharedMedia, AceAddon, AceDB, WeakAuras APIs, or any other addon libraries
-- **Only use**: Native Blizzard WoW API functions and built-in UI elements
-- **Assets**: Only use Blizzard game files (model IDs, atlas textures, Interface\\ paths)
-- **TOC file**: Keep `## RequiredDeps:` empty
+❌ **Do NOT use**: LibStub, AceAddon, AceDB, LibSharedMedia, WeakAuras APIs
+✅ **Only use**: Native Blizzard WoW API, built-in UI elements, Blizzard atlas textures
 
-**Why**: This ensures the addon:
-1. Works standalone without requiring users to install other addons
-2. Has minimal performance overhead
-3. Won't break if other addons are updated/removed
-4. Is easier to maintain and debug
+**Why**: Standalone operation, minimal overhead, no breakage from external updates.
 
-**Examples of acceptable vs. unacceptable code**:
 ```lua
--- GOOD: Native Blizzard atlas
-local success = pcall(border.SetAtlas, border, "uf-essence-icon")
+// GOOD - Native Blizzard atlas
+pcall(texture.SetAtlas, texture, "uf-essence-icon")
 
--- BAD: External library dependency
+// BAD - External library
 local LSM = LibStub("LibSharedMedia-3.0")
-local texture = LSM:Fetch("texture", "SomeTexture")
-
--- GOOD: Native WoW model file ID
-local modelId = 4417910  -- spells/cfx_evoker_livingflame_precast.m2
-pcall(orb.SetModel, orb, modelId)
-
--- BAD: WeakAuras API
-WeakAuras.ScanEvents("UNIT_POWER_UPDATE")
 ```
 
-## Key File Structure
+---
 
-### MoePower.toc
-The Table of Contents file tells WoW about your addon:
-- `## Interface:` - WoW version (120001 = The War Within patch 12.0.1)
-- `## Title:` - Display name in addon list
-- `## Notes:` - Description shown in-game
-- `## SavedVariables:` - Global saved variables across characters
-- `## SavedVariablesPerCharacter:` - Per-character saved variables
-- File list at bottom (e.g., `MoePower.lua`) - Order matters! Files load in sequence
+## File Structure
 
-### MoePower.lua
-Main addon code file. Currently prints a success message on load.
-
-## Important WoW Addon Concepts
-
-### Loading Order
-Files load in the order listed in the .toc file. Dependencies and initialization should come first.
-
-### Events
-Use `frame:RegisterEvent("EVENT_NAME")` to listen for game events.
-Common events: PLAYER_LOGIN, ADDON_LOADED, UNIT_POWER_UPDATE, etc.
-
-### Frames
-UI elements are frames. Create with `CreateFrame("FrameType", "FrameName", parentFrame)`.
-
-### Saved Variables
-Variables listed in `## SavedVariables:` persist between sessions.
-They're loaded during ADDON_LOADED event.
-
-### API Documentation
-- Wowpedia/Warcraft Wiki has comprehensive API documentation
-- Use `/dump` command in-game to inspect values
-- Use `/framestack` to see UI frame hierarchy
-
-## Development Workflow
-1. Edit files in this folder
-2. Use `/reload` in-game to reload UI and test changes
-3. Check for errors with `/console scriptErrors 1` or BugSack addon
-4. Commit changes to git when features are working
-
-## Useful Commands
-- `/reload` - Reload UI without restarting game
-- `/fstack` - Show frame stack under mouse
-- `/etrace` - Event trace to see what events fire
-- `/dump UnitPower("player")` - Check current power value
-- `/dump UnitPowerMax("player")` - Check maximum power
-- `/dump UnitPowerType("player")` - Get power type enum
-
-## Class Power Systems
-
-### Power Types (Enum.PowerType)
-Current power types as of patch 11.0.0+:
-
-| Value | Enum Name | Primary Users | Notes |
-|-------|-----------|---------------|-------|
-| 0 | Mana | Most casters, default for NPCs | Core resource |
-| 1 | Rage | Warriors, Druids (Bear) | Builds through damage |
-| 2 | Focus | Hunters, Hunter pets | Regenerates over time |
-| 3 | Energy | Rogues, Monks, Druids (Cat) | Regenerates over time |
-| 4 | ComboPoints | Rogues, Druids (Feral) | Builder/spender system |
-| 5 | Runes | Death Knights | 6 runes that recharge |
-| 6 | RunicPower | Death Knights | Secondary resource |
-| 7 | SoulShards | Warlocks | Fragment-based resource |
-| 8 | LunarPower | Balance Druids | Astral Power |
-| 9 | HolyPower | Retribution Paladins | Builder/spender |
-| 11 | Maelstrom | Enhancement/Elemental Shamans | Elemental resource |
-| 12 | Chi | Windwalker Monks | Martial resource |
-| 13 | Insanity | Shadow Priests | Void resource |
-| 16 | ArcaneCharges | Arcane Mages | 0-4 charges |
-| 17 | Fury | Havoc Demon Hunters | Primary resource |
-| 18 | Pain | Vengeance Demon Hunters | Tank resource |
-| 19 | Essence | Evokers | Draconic resource |
-| 20-22 | RuneBlood, RuneFrost, RuneUnholy | Death Knights (individual runes) | Added patch 10.0.0 |
-| 25 | AlternateMount | Dragonriding Vigor | Mount-specific |
-| 26 | Balance | Special encounters | Added patch 10.2.7 |
-
-**Deprecated (do not use):**
-- 14: BurningEmbers (removed in Legion)
-- 15: DemonicFury (removed in Legion)
-
-**Important Notes:**
-- Use `Enum.PowerType.Mana`, not `SPELL_POWER_MANA` (deprecated since 7.2.5)
-- Some alternate power types exist for encounters/vehicles
-- Check `UnitPowerType("player")` to detect player's current primary power
-
-### Key API Functions
-```lua
--- Power information
-UnitPower(unit, powerType) -- Current power amount
-UnitPowerMax(unit, powerType) -- Maximum power
-UnitPowerType(unit) -- Returns powerTypeEnum, powerToken, altR, altG, altB, altPowerType
-PowerBarColor[powerType] -- Default Blizzard colors {r, g, b, a}
-
--- Modern Enum.PowerType usage (DO USE THIS)
-local currentPower = UnitPower("player", Enum.PowerType.Mana)
-local maxPower = UnitPowerMax("player", Enum.PowerType.Mana)
-
--- Deprecated syntax (DON'T USE THIS)
--- local power = UnitPower("player", SPELL_POWER_MANA) -- OLD WAY
-
--- Get player's primary power type
-local powerType, powerToken = UnitPowerType("player")
--- powerType is the enum number (0 for Mana, 1 for Rage, etc.)
--- powerToken is the string name ("MANA", "RAGE", etc.)
-
--- Class and spec
-UnitClass(unit) -- Returns className, classFilename, classID
-GetSpecialization() -- Current spec number (1-4)
-GetSpecializationInfo(specIndex) -- Detailed spec info
-
--- Events to monitor
-UNIT_POWER_UPDATE -- Fires when power changes, args: unitTarget, powerType
-UNIT_POWER_FREQUENT -- Fires more frequently for smooth updates
-UNIT_MAXPOWER -- Fires when max power changes
-PLAYER_SPECIALIZATION_CHANGED -- Spec change (respec or talent change)
-PLAYER_ENTERING_WORLD -- Login/reload/zone change
-ADDON_LOADED -- Fires when addon loads, args: addonName
+```
+MoePower/
+├── MoePower.toc          # Addon manifest (MUST declare SavedVariables!)
+├── MoePower.lua          # Core framework
+├── CLAUDE.md             # This file
+└── Classes/
+    ├── Evoker.lua        # Evoker essence module
+    └── Paladin.lua       # Paladin holy power module
 ```
 
-## UI/Frame Development
+### MoePower.toc (Critical Fields)
+```ini
+## Interface: 120000
+## SavedVariables: MoePowerDB    # MUST BE DECLARED or positions won't save!
 
-### Creating a Power Bar
-```lua
-local frame = CreateFrame("Frame", "MoePowerFrame", UIParent)
-frame:SetSize(width, height)
-frame:SetPoint("CENTER", UIParent, "CENTER", x, y)
-
--- Texture for background
-local bg = frame:CreateTexture(nil, "BACKGROUND")
-bg:SetAllPoints(frame)
-bg:SetColorTexture(0, 0, 0, 0.5)
-
--- Texture for power bar
-local bar = frame:CreateTexture(nil, "ARTWORK")
-bar:SetPoint("BOTTOMLEFT")
-bar:SetSize(width * fillPercent, height)
-bar:SetColorTexture(r, g, b, 1)
+MoePower.lua
+Classes\Evoker.lua
+Classes\Paladin.lua
 ```
 
-### Frame Layers (Z-order)
-1. BACKGROUND
-2. BORDER
-3. ARTWORK
-4. OVERLAY
-5. HIGHLIGHT
+---
 
-### Anchoring
-```lua
-frame:SetPoint("point", relativeTo, "relativePoint", x, y)
--- Example: SetPoint("TOPLEFT", UIParent, "CENTER", 0, 100)
-```
-
-## Performance Best Practices
-
-1. **Throttle Updates**: Don't update on every UNIT_POWER_FREQUENT for smooth animations
-2. **Hide When Not Needed**: Use `frame:Hide()` when player is dead/ghost
-3. **Unregister Events**: Unregister events when not needed to reduce overhead
-4. **Avoid String Concatenation**: Use string.format() for better performance
-5. **Cache Values**: Store frequently accessed values (class, spec) instead of calling API repeatedly
-
-## Architecture & Optimization
+## Architecture
 
 ### Modular Class System
 
-MoePower uses a modular architecture where each class has its own module file in `Classes/`:
+**Framework** (MoePower.lua):
+- Manages events, frame creation, position saving
+- Provides shared utilities (`AddOrbAnimations`)
+- Routes updates to active class module
+
+**Class Modules** (Classes/*.lua):
+- Self-contained class-specific logic
+- Register with `MoePower:RegisterClassModule()`
+- Only the player's class module activates
 
 ```lua
--- Class module structure
+// Module structure
 local ClassModule = {
-    className = "EVOKER",                    -- Class identifier (matches UnitClass)
-    powerType = Enum.PowerType.Essence,      -- Power type enum
-    powerTypeName = "ESSENCE",               -- Power type name (UPPERCASE for event comparison)
+    className = "EVOKER",                  -- UnitClass() filename
+    powerType = Enum.PowerType.Essence,    -- Power enum
+    powerTypeName = "ESSENCE",             -- UPPERCASE for optimization
 
-    config = { ... }  -- Visual configuration
+    config = {
+        orbSize = 25,
+        activeAlpha = 1.0,
+        transitionTime = 0.15,
+        backgroundAtlas = "uf-essence-bg-active",
+        foregroundAtlas = "uf-essence-icon"
+    }
 }
 
 function ClassModule:CreateOrbs(frame, layoutConfig)
-    -- Create and return orb frames
+    // Create orb frames in arc formation
+    // Use MoePower:AddOrbAnimations(frame, config) for fade effects
+    return orbsArray
 end
 
 function ClassModule:UpdatePower(orbs)
-    -- Update orb visibility based on current power
+    // Update orb visibility based on UnitPower()
 end
 
 MoePower:RegisterClassModule(ClassModule)
 ```
 
-### Performance Optimizations
+### Framework Utilities
 
-#### 1. Power Type Name String Operations
-**Why**: `UNIT_POWER_FREQUENT` fires multiple times per second during combat. Repeated string operations (`upper()`) on every event add unnecessary overhead.
-
-**Solution**: Power type names are stored in uppercase (e.g., `"ESSENCE"`, `"HOLY_POWER"`), so we only need to uppercase the event power type once per comparison.
+**`MoePower:AddOrbAnimations(frame, config)`**
+Centralizes fade in/out animation logic. Returns fadeIn, fadeOut animation groups.
 
 ```lua
--- BAD: Two string operations on every power update (multiple times per second)
-local eventPowerType = (powerType or ""):upper()
-local modulePowerType = (activeModule.powerTypeName or ""):upper()
-if eventPowerType == modulePowerType then
-    UpdatePower()
-end
+local fadeIn, fadeOut = MoePower:AddOrbAnimations(orbFrame, cfg)
+// Store and use: orb.fadeIn:Play(), orb.fadeOut:Play()
+```
 
--- GOOD: One string operation - module name already uppercase
-local eventPowerType = (powerType or ""):upper()
+---
+
+## Implementation Details
+
+### Arc Layout System
+Orbs arranged in arc formation with configurable radius and spacing:
+
+```lua
+// In MoePower.lua
+local ARC_RADIUS = 140              -- Distance from center
+local BASE_ORB_SPACING = 12.5       -- Degrees between orbs
+local arcSpan = BASE_ORB_SPACING * (maxPower - 1)
+
+// In module CreateOrbs()
+local startAngle = 90 + (arcSpan / 2)  -- Start from top
+local angle = startAngle - ((i - 1) * (arcSpan / (maxPower - 1)))
+local radian = math.rad(angle)
+local x = arcRadius * math.cos(radian)
+local y = arcRadius * math.sin(radian)
+```
+
+### Centered Display Pattern
+Orbs grow from center outward (e.g., 3/5 essence shows middle 3 orbs):
+
+```lua
+local startIndex = math.floor((maxPower - currentPower) / 2) + 1
+local endIndex = startIndex + currentPower - 1
+// Orbs i where startIndex <= i <= endIndex are visible
+```
+
+### Event Handling & Optimization
+
+**Registered Events**:
+- `PLAYER_LOGIN` → Initialize (1s delay for stat loading)
+- `UNIT_POWER_FREQUENT` → Update display
+- `UNIT_MAXPOWER` → Recreate orbs (e.g., talent changes)
+- `PLAYER_TALENT_UPDATE`, `TRAIT_CONFIG_UPDATED`, `PLAYER_SPECIALIZATION_CHANGED` → Recreate orbs (1s delay)
+- `PLAYER_REGEN_DISABLED/ENABLED` → Combat visibility (Evoker only)
+
+**Performance Optimization**:
+```lua
+// BAD: Two string operations every update (fires multiple times/sec)
+local modulePowerType = (activeModule.powerTypeName or ""):upper()
+
+// GOOD: powerTypeName already uppercase, one operation only
 if eventPowerType == activeModule.powerTypeName then
     UpdatePower()
 end
 ```
 
-**When adding new class modules**: Always store `powerTypeName` in UPPERCASE to avoid repeated string operations.
+### Position Persistence
 
-#### 2. Combat Visibility (Future Settings)
+**Grid Snapping**: Positions snap to 10px grid for alignment.
 
-**Current Implementation**: Evoker checks `UnitAffectingCombat("player")` in its `UpdatePower()` to show orbs only in combat or when regenerating essence. Paladin shows orbs regardless of combat state.
-
-**Future User Setting**: Combat visibility should be a user-configurable option, not hardcoded per class.
-
-**Recommended Implementation**:
 ```lua
--- In MoePowerDB saved variables
-MoePowerDB = MoePowerDB or {
-    combatOnlyMode = false,  -- Global setting or per-class table
-    -- OR per-class:
-    combatSettings = {
-        EVOKER = "combat_or_regen",  -- "always", "combat_only", "combat_or_regen"
-        PALADIN = "always",
-    }
+// Must be in .toc or positions don't save!
+## SavedVariables: MoePowerDB
+
+// Framework saves on drag end
+MoePowerDB.position = { point, relativePoint, x, y }
+
+// Framework loads on PLAYER_LOGIN
+LoadPosition() // Called in Initialize()
+```
+
+---
+
+## Class-Specific Implementations
+
+### Evoker (Essence)
+- **Max Power**: 6 (dynamic via talents)
+- **Visibility**: Shows only in combat OR when regenerating (current < max)
+- **Textures**: `uf-essence-bg-active`, `uf-essence-icon`
+- **Logic**: Checks `UnitAffectingCombat("player")` in UpdatePower
+
+### Paladin (Holy Power)
+- **Max Power**: 5 (always fixed)
+- **Visibility**: Always shown
+- **Textures**: `uf-holypower-rune{1-5}-{active/ready}` (custom mapping)
+- **Rune Mapping**: Positions 1-5 → Runes {4, 2, 1, 3, 5}
+- **Texture Variants**: "active" for 1-2 HP, "ready" for 3+ HP
+
+```lua
+local runeMap = {4, 2, 1, 3, 5}
+local textureVariant = (currentPower <= 2) and "active" or "ready"
+local runeAtlas = "uf-holypower-rune" .. runeMap[i] .. "-" .. textureVariant
+```
+
+---
+
+## Lessons Learned
+
+### 1. **SavedVariables MUST Be Declared in .toc**
+❌ **Problem**: Position changes lost on `/reload`
+✅ **Solution**: Add `## SavedVariables: MoePowerDB` to .toc file
+
+WoW won't persist variables unless declared. Easy to overlook!
+
+### 2. **Timing Matters - Stats Load Delayed**
+❌ **Problem**: `UnitPowerMax()` returns 0 or wrong value on PLAYER_LOGIN
+✅ **Solution**: Use `C_Timer.After(1, Initialize)` for 1-second delay
+
+Also applies to talent/trait change events. Always delay stat queries.
+
+### 3. **String Operations in Hot Paths Are Expensive**
+❌ **Problem**: Calling `:upper()` twice per power update (fires multiple times/sec)
+✅ **Solution**: Store power type names in uppercase, uppercase event type once
+
+Small optimization, big impact on frequent events.
+
+### 4. **Don't Duplicate Code - Centralize Utilities**
+❌ **Problem**: 23 lines of animation code duplicated in each module
+✅ **Solution**: `MoePower:AddOrbAnimations()` helper in framework
+
+Eliminated ~46 lines, easier to maintain, consistent behavior.
+
+### 5. **Atlas Texture Names Are Inconsistent**
+❌ **Problem**: Guessing atlas names rarely works
+✅ **Solution**: Use `/fstack`, inspect Blizzard frames, or check wow-ui-source repo
+
+Example: Holy Power uses `uf-holypower-rune#-active`, not `nameplates-holypower-*`.
+
+### 6. **pcall() for Atlas Loading**
+✅ **Always use**: `pcall(texture.SetAtlas, texture, atlasName)`
+
+Atlas might not exist on all clients. Fallback to color texture on failure.
+
+### 7. **Combat Events Need Framework Filtering (Future)**
+⚠️ **Current**: Evoker checks combat in module, Paladin doesn't care
+🔮 **Future**: Add user setting, check in framework before calling UpdatePower
+
+Keep settings logic in framework, modules focus on display.
+
+---
+
+## Development Workflow
+
+1. **Edit** `.lua` files
+2. **Test** with `/reload` in-game
+3. **Debug** with `/console scriptErrors 1` or BugSack addon
+4. **Inspect** frames with `/fstack`
+5. **Commit** when feature works
+
+### Useful Commands
+- `/reload` - Reload UI
+- `/fstack` - Frame stack inspector
+- `/dump UnitPower("player", Enum.PowerType.Essence)` - Check power value
+- `/etrace` - Event trace (see what fires)
+
+---
+
+## Adding New Class Modules
+
+1. Create `Classes/YourClass.lua`
+2. Define module table with required fields:
+   ```lua
+   local YourModule = {
+       className = "WARRIOR",                    // UnitClass() result
+       powerType = Enum.PowerType.Rage,          // Power enum
+       powerTypeName = "RAGE",                   // UPPERCASE!
+       config = { orbSize, activeAlpha, ... }
+   }
+   ```
+3. Implement `CreateOrbs(frame, layoutConfig)` and `UpdatePower(orbs)`
+4. Call `MoePower:RegisterClassModule(YourModule)`
+5. Add to `MoePower.toc` file list
+
+**Key Points**:
+- Use `MoePower:AddOrbAnimations()` for fade effects
+- Check `UnitPower()` and `UnitPowerMax()` in UpdatePower
+- Store power type name in **UPPERCASE** for optimization
+- Use Blizzard atlas textures (check `/fstack` for names)
+
+---
+
+## Future Enhancements
+
+### Combat Visibility Settings
+Allow users to configure per-class visibility modes:
+- "always" - Always show (current Paladin)
+- "combat_only" - Only in combat
+- "combat_or_regen" - Combat or regenerating (current Evoker)
+
+**Recommended Implementation**: Check setting in framework before calling UpdatePower.
+
+```lua
+// In MoePowerDB
+combatSettings = {
+    EVOKER = "combat_or_regen",
+    PALADIN = "always",
 }
 
--- In event handler (MoePower.lua)
-elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
-    -- Check if user has combat visibility enabled
-    if MoePowerDB.combatOnlyMode then
-        UpdatePower()
-    end
-    -- OR check per-class setting
-    if MoePowerDB.combatSettings[activeModule.className] ~= "always" then
-        UpdatePower()
-    end
+// In event handler
+if MoePowerDB.combatSettings[activeModule.className] ~= "always" then
+    UpdatePower()
 end
 ```
 
-**Why this approach**:
-- Framework controls when to call UpdatePower based on settings
-- Modules remain simple and focused on display logic
-- Easy to add UI configuration later
-- Performance impact is minimal (one table lookup vs. unconditional function call)
+### Scale/Alpha Settings
+- Per-class or global scale multiplier
+- Configurable active/inactive alpha values
+- Stored in `MoePowerDB`
 
-**Alternative approach** (if modules need more control):
-- Pass combat state as parameter: `UpdatePower(orbs, inCombat, settings)`
-- Module decides visibility based on settings
-- More flexible but adds parameter passing overhead
-
-### Event Handling Optimization
-
-The framework filters events before calling module functions:
-
-```lua
--- Efficient: Only call UpdatePower for relevant events
-if unit == "player" and activeModule and activeModule.powerTypeName then
-    local eventPowerType = (powerType or ""):upper()
-    if eventPowerType == activeModule.powerTypeName then
-        UpdatePower()  -- Only called when it matters
-    end
-end
-```
-
-**Key principle**: Filter early at framework level to avoid unnecessary module function calls.
-
-## Saved Variables Best Practices
-
-```lua
--- Initialize with defaults
-MoePowerDB = MoePowerDB or {
-    position = { point = "CENTER", x = 0, y = -200 },
-    scale = 1.0,
-    colors = {},
-    enabled = true
-}
-
--- Per-character settings
-MoePowerCharDB = MoePowerCharDB or {
-    showInCombatOnly = false
-}
-```
-
-## Common Pitfalls
-
-1. **Timing**: Some API calls return nil during early load. Use PLAYER_LOGIN or PLAYER_ENTERING_WORLD
-2. **Unit Tokens**: Always use "player" not character name for the player unit
-3. **Coordinate System**: (0,0) is bottom-left, positive Y goes up
-4. **Frame Strata**: Higher strata appears on top (BACKGROUND < LOW < MEDIUM < HIGH < DIALOG < FULLSCREEN < TOOLTIP)
-5. **Textures**: Must set size explicitly, don't inherit parent size automatically
-
-## Debugging Techniques
-
-1. Print to chat: `print("Debug:", value)`
-2. Use DevTools addon for better debugging
-3. Check Lua errors: `/console scriptErrors 1`
-4. Reload often during development: `/reload`
-5. Use `/fstack` to inspect frame hierarchy
-6. Use BugSack or BugGrabber addons to catch errors
+---
 
 ## Testing Checklist
 
-- [x] Test on Evoker class
-- [ ] Test on multiple classes (different power types)
-- [x] Test spec changes
-- [ ] Test in/out of combat
-- [ ] Test while dead/ghost
-- [ ] Test in dungeons/raids
-- [ ] Test with UI scale changes
-- [x] Test /reload and fresh login
-- [ ] Test with other addons enabled/disabled
+- [x] Evoker essence display
+- [x] Paladin holy power display
+- [x] Position saving/loading
+- [x] Spec/talent changes (dynamic max power)
+- [x] Combat visibility (Evoker)
+- [ ] Other classes (Rogue, DK, Warlock, etc.)
+- [ ] UI scale changes
+- [ ] Multiple monitors/resolutions
+
+---
 
 ## Resources
 
-- **Wowpedia**: https://wowpedia.fandom.com/wiki/World_of_Warcraft_API
-- **WoW Interface**: https://www.wowinterface.com/
-- **CurseForge**: For addon distribution
-- **Townlong Yak**: API documentation and examples
-- **GitHub WoW UI Source**: https://github.com/Gethe/wow-ui-source
+- **Wowpedia API**: https://wowpedia.fandom.com/wiki/World_of_Warcraft_API
+- **WoW UI Source**: https://github.com/Gethe/wow-ui-source (atlas names, frame structures)
+- **Enum.PowerType Reference**: See table in this file under "Class Power Systems"
 
-## Edit Mode Integration
+---
 
-### Overview
-Edit Mode allows players to move and customize UI elements using Blizzard's built-in system (ESC > Edit Mode).
+## Class Power Types Reference
 
-### Implementation Requirements
-```lua
--- 1. Register your frame as an Edit Mode system
-local editModeManager = {
-    name = "MoePower",
-    -- Called when entering edit mode
-    OnEditModeEnter = function(self)
-        -- Show drag outline, enable movement
-    end,
-    -- Called when exiting edit mode
-    OnEditModeExit = function(self)
-        -- Save position, hide drag outline
-    end,
-}
+| Value | Enum Name | Users | Max | Notes |
+|-------|-----------|-------|-----|-------|
+| 9 | HolyPower | Paladin | 5 | Fixed max |
+| 19 | Essence | Evoker | 5-6 | Talent-dependent |
+| 4 | ComboPoints | Rogue, Feral | 5-7 | Talent-dependent |
+| 5 | Runes | Death Knight | 6 | 6 runes (2 per type) |
+| 7 | SoulShards | Warlock | 5 | Fixed max |
+| 12 | Chi | Monk | 5-6 | Talent-dependent |
 
--- 2. Make frame movable in Edit Mode
-frame:SetMovable(true)
-frame:EnableMouse(true)
-frame:RegisterForDrag("LeftButton")
+**Important**: Use `Enum.PowerType.X`, not deprecated `SPELL_POWER_X` constants.
 
-frame:SetScript("OnDragStart", function(self)
-    if EditModeManagerFrame:IsEditModeActive() then
-        self:StartMoving()
-    end
-end)
+---
 
-frame:SetScript("OnDragStop", function(self)
-    self:StopMovingOrSizing()
-    -- Save position to SavedVariables
-    local point, _, relativePoint, x, y = self:GetPoint()
-    MoePowerDB.position = {
-        point = point,
-        relativePoint = relativePoint,
-        x = x,
-        y = y
-    }
-end)
+## Current Status
 
--- 3. Register with Edit Mode Manager (Dragonflight+)
-if EditModeManagerFrame then
-    EditModeManagerFrame:RegisterSystemFrame(frame)
-end
-```
+**Implemented Classes**: Evoker, Paladin
+**Features**: Arc layout, centered display, fade animations, Edit Mode integration, position persistence, combat visibility (Evoker)
+**Commits**:
+- e5c34a2: Initial Paladin module with Holy Power
+- 768b0a6: Timing delays for stat loading
+- 5b9adef: Combat visibility & string optimizations
+- 93fc0bc: Centralized animations & fixed position saving
 
-### Edit Mode API Functions
-```lua
-EditModeManagerFrame:IsEditModeActive() -- Check if Edit Mode is active
-EditModeManagerFrame:EnterEditMode() -- Enter Edit Mode programmatically
-EditModeManagerFrame:ExitEditMode() -- Exit Edit Mode
-```
-
-### Position Restoration
-```lua
--- Restore saved position on load
-local function RestorePosition()
-    local pos = MoePowerDB.position
-    if pos then
-        frame:ClearAllPoints()
-        frame:SetPoint(
-            pos.point or "CENTER",
-            UIParent,
-            pos.relativePoint or "CENTER",
-            pos.x or 0,
-            pos.y or -200
-        )
-    end
-end
-
--- Call after PLAYER_LOGIN
-frame:RegisterEvent("PLAYER_LOGIN")
-frame:SetScript("OnEvent", function(self, event)
-    if event == "PLAYER_LOGIN" then
-        RestorePosition()
-    end
-end)
-```
-
-### Visual Feedback in Edit Mode
-```lua
--- Optional: Show border when in Edit Mode
-local editBorder = frame:CreateTexture(nil, "OVERLAY")
-editBorder:SetAllPoints(frame)
-editBorder:SetColorTexture(1, 1, 1, 0.3)
-editBorder:Hide()
-
--- Show/hide border based on Edit Mode state
-hooksecurefunc(EditModeManagerFrame, "EnterEditMode", function()
-    editBorder:Show()
-end)
-
-hooksecurefunc(EditModeManagerFrame, "ExitEditMode", function()
-    editBorder:Hide()
-end)
-```
-
-## Project Goals
-
-MoePower aims to provide:
-1. Clean, minimal class power display
-2. **Movable via Edit Mode system** - Players can position it anywhere
-3. Customizable position and appearance
-4. Support for all class power types
-5. Smooth animations and updates
-6. Low performance impact
-7. Easy configuration through Edit Mode
+**Next Steps**: Additional class modules (Rogue, DK, Warlock), user settings UI
