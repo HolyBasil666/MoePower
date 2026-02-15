@@ -256,10 +256,11 @@ eventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
 eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 eventFrame:SetScript("OnEvent", function(self, event, unit, powerType)
     if event == "PLAYER_LOGIN" then
-        Initialize()
+        -- Delay initialization to ensure player stats are fully loaded
+        C_Timer.After(1, Initialize)
     elseif event == "PLAYER_TALENT_UPDATE" or event == "TRAIT_CONFIG_UPDATED" or event == "PLAYER_SPECIALIZATION_CHANGED" then
-        -- Recreate orbs on talent changes
-        RecreateOrbs()
+        -- Delay recreation to ensure stats are fully updated
+        C_Timer.After(1, RecreateOrbs)
     elseif event == "UNIT_MAXPOWER" then
         -- Recreate orbs when max power changes
         if unit == "player" and activeModule and activeModule.powerTypeName then
