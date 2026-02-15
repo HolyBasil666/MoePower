@@ -239,13 +239,14 @@ MoePowerCharDB = MoePowerCharDB or {
 
 ## Testing Checklist
 
+- [x] Test on Evoker class
 - [ ] Test on multiple classes (different power types)
-- [ ] Test spec changes
+- [x] Test spec changes
 - [ ] Test in/out of combat
 - [ ] Test while dead/ghost
 - [ ] Test in dungeons/raids
 - [ ] Test with UI scale changes
-- [ ] Test /reload and fresh login
+- [x] Test /reload and fresh login
 - [ ] Test with other addons enabled/disabled
 
 ## Resources
