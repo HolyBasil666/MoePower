@@ -7,22 +7,22 @@ local EvokerModule = {
     className = "EVOKER",
     powerType = Enum.PowerType.Essence,
 
+    -- Timing tracking
+    lastEssenceCount = 0,
+    lastEssenceTime = 0,
+
     -- Visual settings
     config = {
-        orbSize = 40,           -- Orb width and height
-        arcRadius = 150,        -- Distance from center
-        arcSpan = 55,           -- Total degrees of arc
+        orbSize = 25,            -- Orb frame size (container)
+        backgroundScale = 1.0,   -- Background texture scale (multiplier of orbSize)
+        foregroundScale = 1.0,   -- Foreground texture scale (multiplier of orbSize)
         backgroundAtlas = "uf-essence-bg-active",  -- Background texture
-        foregroundAtlas = "uf-essence-icon",       -- Foreground fill texture
-        orbFallback = "Interface\\Minimap\\MiniMap-TrackingBorder",
-        orbColor = {r = 0.3, g = 0.8, b = 0.9, a = 1},  -- Cyan/teal for essence (original)
-        emptyColor = {r = 0.5, g = 0.5, b = 0.5, a = 0.4},  -- Gray for inactive
-        glowColor = {r = 0.5, g = 1, b = 1, a = 0.6}   -- Cyan glow (original)
+        foregroundAtlas = "uf-essence-icon"        -- Foreground fill texture
     }
 }
 
 -- Create essence orbs in arc formation
-function EvokerModule:CreateOrbs(frame)
+function EvokerModule:CreateOrbs(frame, layoutConfig)
     local orbs = {}
     local maxPower = UnitPowerMax("player", self.powerType)
     if maxPower == 0 then
@@ -30,14 +30,16 @@ function EvokerModule:CreateOrbs(frame)
     end
 
     local cfg = self.config
-    local startAngle = 90 + (cfg.arcSpan / 2)  -- Start from top-left
+    local arcRadius = layoutConfig.arcRadius
+    local arcSpan = layoutConfig.arcSpan
+    local startAngle = 90 + (arcSpan / 2)  -- Start from top-left
 
     for i = 1, maxPower do
         -- Calculate position in arc
-        local angle = startAngle - ((i - 1) * (cfg.arcSpan / (maxPower - 1)))
+        local angle = startAngle - ((i - 1) * (arcSpan / (maxPower - 1)))
         local radian = math.rad(angle)
-        local x = cfg.arcRadius * math.cos(radian)
-        local y = cfg.arcRadius * math.sin(radian)
+        local x = arcRadius * math.cos(radian)
+        local y = arcRadius * math.sin(radian)
 
         -- Create orb container frame
         local orbFrame = CreateFrame("Frame", nil, frame)
@@ -46,7 +48,9 @@ function EvokerModule:CreateOrbs(frame)
 
         -- Background essence texture (always visible)
         local background = orbFrame:CreateTexture(nil, "BACKGROUND")
-        background:SetAllPoints(orbFrame)
+        local bgSize = cfg.orbSize * cfg.backgroundScale
+        background:SetSize(bgSize, bgSize)
+        background:SetPoint("CENTER", orbFrame, "CENTER", 0, 0)
         local bgSuccess = pcall(background.SetAtlas, background, cfg.backgroundAtlas)
         if not bgSuccess then
             background:SetColorTexture(0.2, 0.2, 0.2, 0.5)
@@ -54,7 +58,9 @@ function EvokerModule:CreateOrbs(frame)
 
         -- Foreground essence fill texture (shows when active)
         local foreground = orbFrame:CreateTexture(nil, "ARTWORK")
-        foreground:SetAllPoints(orbFrame)
+        local fgSize = cfg.orbSize * cfg.foregroundScale
+        foreground:SetSize(fgSize, fgSize)
+        foreground:SetPoint("CENTER", orbFrame, "CENTER", 0, 0)
         local fgSuccess = pcall(foreground.SetAtlas, foreground, cfg.foregroundAtlas)
         if not fgSuccess then
             foreground:SetColorTexture(1, 1, 1, 1)
@@ -79,8 +85,13 @@ end
 function EvokerModule:UpdatePower(orbs)
     local currentPower = UnitPower("player", self.powerType)
     local maxPower = #orbs
+    local currentTime = GetTime()
 
-    print("|cff00ff00MoePower:|r UpdatePower - Current: " .. currentPower .. " / Max: " .. maxPower)
+    -- Update tracking
+    if currentPower ~= self.lastEssenceCount then
+        self.lastEssenceCount = currentPower
+        self.lastEssenceTime = currentTime
+    end
 
     -- Calculate centered range of orbs to show
     -- For max=5: 1 essence shows pos 3, 2 shows 2-3, 3 shows 2-4, etc.
@@ -93,8 +104,6 @@ function EvokerModule:UpdatePower(orbs)
             orbs[i].frame:Show()
             orbs[i].foreground:SetAlpha(1)
             orbs[i].active = true
-
-            print("|cff00ff00MoePower:|r Showing orb " .. i)
         else
             -- Hide orb completely
             orbs[i].frame:Hide()

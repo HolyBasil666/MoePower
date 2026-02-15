@@ -14,6 +14,12 @@ MoePowerDB = MoePowerDB or {}
 
 -- Constants
 local GRID_SIZE = 10  -- Snap to grid every 10 pixels
+local DEFAULT_POSITION_X = 0
+local DEFAULT_POSITION_Y = -80
+
+-- Arc layout settings (shared across all class modules)
+local ARC_RADIUS = 140  -- Distance from center
+local ARC_SPAN = 50     -- Total degrees of arc
 
 -- Class module registry
 local classModules = {}
@@ -160,7 +166,7 @@ local function Initialize()
     -- Create main frame
     frame = CreateFrame("Frame", "MoePowerFrame", UIParent)
     frame:SetSize(400, 400)  -- Large enough for arc radius of 150
-    frame:SetPoint("CENTER", UIParent, "CENTER", 0, -70)  -- Default position
+    frame:SetPoint("CENTER", UIParent, "CENTER", DEFAULT_POSITION_X, DEFAULT_POSITION_Y)
     frame:SetFrameStrata("MEDIUM")
 
     -- Load saved position if it exists
@@ -171,7 +177,11 @@ local function Initialize()
 
     -- Create power display using the class module
     if activeModule.CreateOrbs then
-        powerOrbs = activeModule:CreateOrbs(frame)
+        local layoutConfig = {
+            arcRadius = ARC_RADIUS,
+            arcSpan = ARC_SPAN
+        }
+        powerOrbs = activeModule:CreateOrbs(frame, layoutConfig)
     end
 
     -- Initial update
