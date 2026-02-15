@@ -71,29 +71,8 @@ function PaladinModule:CreateOrbs(frame, layoutConfig)
             foreground:SetColorTexture(1, 0.9, 0.2, 1)  -- Golden color for holy power
         end
 
-        -- Fade in animation
-        local fadeInGroup = powerFrame:CreateAnimationGroup()
-        local fadeIn = fadeInGroup:CreateAnimation("Alpha")
-        fadeIn:SetFromAlpha(0)
-        fadeIn:SetToAlpha(cfg.activeAlpha)
-        fadeIn:SetDuration(cfg.transitionTime)
-        fadeIn:SetSmoothing("IN")
-
-        fadeInGroup:SetScript("OnFinished", function()
-            powerFrame:SetAlpha(cfg.activeAlpha)
-        end)
-
-        -- Fade out animation
-        local fadeOutGroup = powerFrame:CreateAnimationGroup()
-        local fadeOut = fadeOutGroup:CreateAnimation("Alpha")
-        fadeOut:SetFromAlpha(cfg.activeAlpha)
-        fadeOut:SetToAlpha(0)
-        fadeOut:SetDuration(cfg.transitionTime)
-        fadeOut:SetSmoothing("OUT")
-
-        fadeOutGroup:SetScript("OnFinished", function()
-            powerFrame:SetAlpha(0)
-        end)
+        -- Add fade animations
+        local fadeInGroup, fadeOutGroup = MoePower:AddOrbAnimations(powerFrame, cfg)
 
         -- Store references
         holyPower[i] = {

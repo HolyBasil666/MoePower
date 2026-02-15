@@ -65,29 +65,8 @@ function EvokerModule:CreateOrbs(frame, layoutConfig)
             foreground:SetColorTexture(1, 1, 1, 1)
         end
 
-        -- Fade in animation
-        local fadeInGroup = essenceFrame:CreateAnimationGroup()
-        local fadeIn = fadeInGroup:CreateAnimation("Alpha")
-        fadeIn:SetFromAlpha(0)
-        fadeIn:SetToAlpha(cfg.activeAlpha)
-        fadeIn:SetDuration(cfg.transitionTime)
-        fadeIn:SetSmoothing("IN")
-
-        fadeInGroup:SetScript("OnFinished", function()
-            essenceFrame:SetAlpha(cfg.activeAlpha)
-        end)
-
-        -- Fade out animation
-        local fadeOutGroup = essenceFrame:CreateAnimationGroup()
-        local fadeOut = fadeOutGroup:CreateAnimation("Alpha")
-        fadeOut:SetFromAlpha(cfg.activeAlpha)
-        fadeOut:SetToAlpha(0)
-        fadeOut:SetDuration(cfg.transitionTime)
-        fadeOut:SetSmoothing("OUT")
-
-        fadeOutGroup:SetScript("OnFinished", function()
-            essenceFrame:SetAlpha(0)
-        end)
+        -- Add fade animations
+        local fadeInGroup, fadeOutGroup = MoePower:AddOrbAnimations(essenceFrame, cfg)
 
         -- Store references
         essence[i] = {

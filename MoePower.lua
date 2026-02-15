@@ -145,6 +145,38 @@ local function SetupEditMode()
     end
 end
 
+-- Create fade animations for an orb frame
+function MoePower:AddOrbAnimations(orbFrame, config)
+    local activeAlpha = config.activeAlpha or 1.0
+    local transitionTime = config.transitionTime or 0.15
+
+    -- Fade in animation
+    local fadeInGroup = orbFrame:CreateAnimationGroup()
+    local fadeIn = fadeInGroup:CreateAnimation("Alpha")
+    fadeIn:SetFromAlpha(0)
+    fadeIn:SetToAlpha(activeAlpha)
+    fadeIn:SetDuration(transitionTime)
+    fadeIn:SetSmoothing("IN")
+
+    fadeInGroup:SetScript("OnFinished", function()
+        orbFrame:SetAlpha(activeAlpha)
+    end)
+
+    -- Fade out animation
+    local fadeOutGroup = orbFrame:CreateAnimationGroup()
+    local fadeOut = fadeOutGroup:CreateAnimation("Alpha")
+    fadeOut:SetFromAlpha(activeAlpha)
+    fadeOut:SetToAlpha(0)
+    fadeOut:SetDuration(transitionTime)
+    fadeOut:SetSmoothing("OUT")
+
+    fadeOutGroup:SetScript("OnFinished", function()
+        orbFrame:SetAlpha(0)
+    end)
+
+    return fadeInGroup, fadeOutGroup
+end
+
 -- Update power display (called by event handler)
 local function UpdatePower()
     if activeModule and activeModule.UpdatePower then
