@@ -6,24 +6,23 @@ local _, MoePower = ...
 local EvokerModule = {
     className = "EVOKER",
     powerType = Enum.PowerType.Essence,
-
-    -- Timing tracking
-    lastEssenceCount = 0,
-    lastEssenceTime = 0,
+    powerTypeName = "ESSENCE",
 
     -- Visual settings
     config = {
         orbSize = 25,            -- Orb frame size (container)
         backgroundScale = 1.0,   -- Background texture scale (multiplier of orbSize)
         foregroundScale = 1.0,   -- Foreground texture scale (multiplier of orbSize)
+        activeAlpha = 1.0,       -- Alpha when essence is active
+        transitionTime = 0.15,   -- Fade transition time in seconds (150ms)
         backgroundAtlas = "uf-essence-bg-active",  -- Background texture
         foregroundAtlas = "uf-essence-icon"        -- Foreground fill texture
     }
 }
 
--- Create essence orbs in arc formation
+-- Create essence display in arc formation
 function EvokerModule:CreateOrbs(frame, layoutConfig)
-    local orbs = {}
+    local essence = {}
     local maxPower = UnitPowerMax("player", self.powerType)
     if maxPower == 0 then
         maxPower = 6  -- Default fallback
@@ -41,73 +40,110 @@ function EvokerModule:CreateOrbs(frame, layoutConfig)
         local x = arcRadius * math.cos(radian)
         local y = arcRadius * math.sin(radian)
 
-        -- Create orb container frame
-        local orbFrame = CreateFrame("Frame", nil, frame)
-        orbFrame:SetSize(cfg.orbSize, cfg.orbSize)
-        orbFrame:SetPoint("CENTER", frame, "CENTER", x, y)
+        -- Create essence container frame
+        local essenceFrame = CreateFrame("Frame", nil, frame)
+        essenceFrame:SetSize(cfg.orbSize, cfg.orbSize)
+        essenceFrame:SetPoint("CENTER", frame, "CENTER", x, y)
 
         -- Background essence texture (always visible)
-        local background = orbFrame:CreateTexture(nil, "BACKGROUND")
+        local background = essenceFrame:CreateTexture(nil, "BACKGROUND")
         local bgSize = cfg.orbSize * cfg.backgroundScale
         background:SetSize(bgSize, bgSize)
-        background:SetPoint("CENTER", orbFrame, "CENTER", 0, 0)
+        background:SetPoint("CENTER", essenceFrame, "CENTER", 0, 0)
         local bgSuccess = pcall(background.SetAtlas, background, cfg.backgroundAtlas)
         if not bgSuccess then
-            background:SetColorTexture(0.2, 0.2, 0.2, 0.5)
+            background:SetColorTexture(0.2, 0.2, 0.2, 0.75)
         end
 
         -- Foreground essence fill texture (shows when active)
-        local foreground = orbFrame:CreateTexture(nil, "ARTWORK")
+        local foreground = essenceFrame:CreateTexture(nil, "ARTWORK")
         local fgSize = cfg.orbSize * cfg.foregroundScale
         foreground:SetSize(fgSize, fgSize)
-        foreground:SetPoint("CENTER", orbFrame, "CENTER", 0, 0)
+        foreground:SetPoint("CENTER", essenceFrame, "CENTER", 0, 0)
         local fgSuccess = pcall(foreground.SetAtlas, foreground, cfg.foregroundAtlas)
         if not fgSuccess then
             foreground:SetColorTexture(1, 1, 1, 1)
         end
 
+        -- Fade in animation
+        local fadeInGroup = essenceFrame:CreateAnimationGroup()
+        local fadeIn = fadeInGroup:CreateAnimation("Alpha")
+        fadeIn:SetFromAlpha(0)
+        fadeIn:SetToAlpha(cfg.activeAlpha)
+        fadeIn:SetDuration(cfg.transitionTime)
+        fadeIn:SetSmoothing("IN")
+
+        fadeInGroup:SetScript("OnFinished", function()
+            essenceFrame:SetAlpha(cfg.activeAlpha)
+        end)
+
+        -- Fade out animation
+        local fadeOutGroup = essenceFrame:CreateAnimationGroup()
+        local fadeOut = fadeOutGroup:CreateAnimation("Alpha")
+        fadeOut:SetFromAlpha(cfg.activeAlpha)
+        fadeOut:SetToAlpha(0)
+        fadeOut:SetDuration(cfg.transitionTime)
+        fadeOut:SetSmoothing("OUT")
+
+        fadeOutGroup:SetScript("OnFinished", function()
+            essenceFrame:SetAlpha(0)
+        end)
+
         -- Store references
-        orbs[i] = {
-            frame = orbFrame,
+        essence[i] = {
+            frame = essenceFrame,
             background = background,
             foreground = foreground,
+            fadeIn = fadeInGroup,
+            fadeOut = fadeOutGroup,
             active = false
         }
 
-        -- Start hidden (will show based on current essence)
-        orbFrame:Hide()
+        essenceFrame:Show()
     end
 
-    return orbs
-end
-
--- Update orb display based on current power
-function EvokerModule:UpdatePower(orbs)
+    -- Initialize visibility based on current power
     local currentPower = UnitPower("player", self.powerType)
-    local maxPower = #orbs
-    local currentTime = GetTime()
-
-    -- Update tracking
-    if currentPower ~= self.lastEssenceCount then
-        self.lastEssenceCount = currentPower
-        self.lastEssenceTime = currentTime
-    end
-
-    -- Calculate centered range of orbs to show
-    -- For max=5: 1 essence shows pos 3, 2 shows 2-3, 3 shows 2-4, etc.
     local startIndex = math.floor((maxPower - currentPower) / 2) + 1
     local endIndex = startIndex + currentPower - 1
 
     for i = 1, maxPower do
         if i >= startIndex and i <= endIndex then
-            -- Show active/filled orb
-            orbs[i].frame:Show()
-            orbs[i].foreground:SetAlpha(1)
-            orbs[i].active = true
+            -- Visible on load
+            essence[i].frame:SetAlpha(cfg.activeAlpha)
+            essence[i].active = true
         else
-            -- Hide orb completely
-            orbs[i].frame:Hide()
-            orbs[i].active = false
+            -- Hidden on load
+            essence[i].frame:SetAlpha(0)
+            essence[i].active = false
+        end
+    end
+
+    return essence
+end
+
+-- Update essence display based on current power
+function EvokerModule:UpdatePower(orbs)
+    local currentPower = UnitPower("player", self.powerType)
+    local maxPower = #orbs
+
+    -- Calculate centered range of essence to show
+    local startIndex = math.floor((maxPower - currentPower) / 2) + 1
+    local endIndex = startIndex + currentPower - 1
+
+    for i = 1, maxPower do
+        if i >= startIndex and i <= endIndex then
+            if not orbs[i].active then
+                orbs[i].fadeOut:Stop()
+                orbs[i].fadeIn:Play()
+                orbs[i].active = true
+            end
+        else
+            if orbs[i].active then
+                orbs[i].fadeIn:Stop()
+                orbs[i].fadeOut:Play()
+                orbs[i].active = false
+            end
         end
     end
 end

@@ -18,8 +18,8 @@ local DEFAULT_POSITION_X = 0
 local DEFAULT_POSITION_Y = -80
 
 -- Arc layout settings (shared across all class modules)
-local ARC_RADIUS = 140  -- Distance from center
-local ARC_SPAN = 50     -- Total degrees of arc
+local ARC_RADIUS = 140    -- Distance from center
+local BASE_ORB_SPACING = 12.5  -- Degrees between orbs
 
 -- Class module registry
 local classModules = {}
@@ -77,21 +77,21 @@ end
 local function SetupEditMode()
     -- Make frame movable
     frame:SetMovable(true)
-    frame:EnableMouse(false)  -- Don't capture mouse input (dragFrame handles it in Edit Mode)
+    frame:EnableMouse(false)  -- Mouse handled by dragFrame
     frame:SetClampedToScreen(true)
 
-    -- Create draggable overlay for Edit Mode (covers orb area)
+    -- Draggable overlay for Edit Mode
     local dragFrame = CreateFrame("Frame", nil, frame)
-    dragFrame:SetSize(220, 150)  -- Taller to reach horizontal center line
-    dragFrame:SetPoint("CENTER", frame, "CENTER", 0, 135)  -- Position where orbs are
+    dragFrame:SetSize(220, 150)
+    dragFrame:SetPoint("CENTER", frame, "CENTER", 0, 135)
     dragFrame:EnableMouse(true)
     dragFrame:SetFrameStrata("HIGH")
-    dragFrame:Hide()  -- Hidden by default
+    dragFrame:Hide()
 
-    -- Make it obvious when in Edit Mode
+    -- Visual indicator for Edit Mode
     local bg = dragFrame:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(dragFrame)
-    bg:SetColorTexture(0, 1, 0, 0.3)  -- Semi-transparent green
+    bg:SetColorTexture(0, 1, 0, 0.3)
 
     local label = dragFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     label:SetPoint("CENTER")
@@ -152,9 +152,52 @@ local function UpdatePower()
     end
 end
 
+-- Recreate orbs (called when max power changes)
+local function RecreateOrbs()
+    if not activeModule or not activeModule.CreateOrbs or not frame then
+        return
+    end
+
+    -- Get current max power
+    local maxPower = UnitPowerMax("player", activeModule.powerType)
+    if maxPower == 0 then
+        maxPower = 6  -- Default fallback
+    end
+
+    -- Return if max power unchanged
+    local currentOrbCount = #powerOrbs
+    if currentOrbCount == maxPower then
+        return
+    end
+
+    -- Calculate arc span based on orb count
+    local arcSpan = BASE_ORB_SPACING * (maxPower - 1)
+
+    -- Clear existing orbs
+    for _, orb in ipairs(powerOrbs) do
+        if orb.frame then
+            orb.frame:Hide()
+            orb.frame:SetParent(nil)
+        end
+    end
+    powerOrbs = {}
+
+    -- Create new orbs
+    local layoutConfig = {
+        arcRadius = ARC_RADIUS,
+        arcSpan = arcSpan
+    }
+    powerOrbs = activeModule:CreateOrbs(frame, layoutConfig)
+
+    -- Update display
+    UpdatePower()
+
+    print("|cff00ff00MoePower:|r Orbs recreated for " .. maxPower .. " max power")
+end
+
 -- Initialize addon
 local function Initialize()
-    -- Get the class module for this character
+    -- Get class module
     activeModule = GetClassModule()
 
     if not activeModule then
@@ -165,21 +208,30 @@ local function Initialize()
 
     -- Create main frame
     frame = CreateFrame("Frame", "MoePowerFrame", UIParent)
-    frame:SetSize(400, 400)  -- Large enough for arc radius of 150
+    frame:SetSize(400, 400)
     frame:SetPoint("CENTER", UIParent, "CENTER", DEFAULT_POSITION_X, DEFAULT_POSITION_Y)
     frame:SetFrameStrata("MEDIUM")
 
-    -- Load saved position if it exists
+    -- Load saved position
     LoadPosition()
 
-    -- Setup Edit Mode integration
+    -- Setup Edit Mode
     SetupEditMode()
 
-    -- Create power display using the class module
+    -- Create power display
     if activeModule.CreateOrbs then
+        -- Get max power
+        local maxPower = UnitPowerMax("player", activeModule.powerType)
+        if maxPower == 0 then
+            maxPower = 6  -- Default fallback
+        end
+
+        -- Calculate arc span
+        local arcSpan = BASE_ORB_SPACING * (maxPower - 1)
+
         local layoutConfig = {
             arcRadius = ARC_RADIUS,
-            arcSpan = ARC_SPAN
+            arcSpan = arcSpan
         }
         powerOrbs = activeModule:CreateOrbs(frame, layoutConfig)
     end
@@ -189,7 +241,9 @@ local function Initialize()
 
     frame:Show()
 
-    print("|cff00ff00MoePower:|r " .. activeModule.className .. " HUD loaded (Edit Mode enabled)")
+    local className = activeModule.className
+    local formattedName = className:sub(1, 1):upper() .. className:sub(2):lower()
+    print("|cff00ff00MoePower:|r " .. formattedName .. " module loaded")
 end
 
 -- Event handler
@@ -197,15 +251,30 @@ local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("UNIT_POWER_FREQUENT")
 eventFrame:RegisterEvent("UNIT_MAXPOWER")
+eventFrame:RegisterEvent("PLAYER_TALENT_UPDATE")
+eventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
+eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 eventFrame:SetScript("OnEvent", function(self, event, unit, powerType)
     if event == "PLAYER_LOGIN" then
         Initialize()
-    elseif event == "UNIT_POWER_FREQUENT" or event == "UNIT_MAXPOWER" then
-        -- Only update for player's power changes
-        if unit == "player" and activeModule and activeModule.powerType then
-            -- Check if this is the power type we're tracking
-            local powerTypeName = powerType or ""
-            if powerTypeName:upper() == "ESSENCE" and activeModule.powerType == Enum.PowerType.Essence then
+    elseif event == "PLAYER_TALENT_UPDATE" or event == "TRAIT_CONFIG_UPDATED" or event == "PLAYER_SPECIALIZATION_CHANGED" then
+        -- Recreate orbs on talent changes
+        RecreateOrbs()
+    elseif event == "UNIT_MAXPOWER" then
+        -- Recreate orbs when max power changes
+        if unit == "player" and activeModule and activeModule.powerTypeName then
+            local eventPowerType = (powerType or ""):upper()
+            local modulePowerType = (activeModule.powerTypeName or ""):upper()
+            if eventPowerType == modulePowerType then
+                RecreateOrbs()
+            end
+        end
+    elseif event == "UNIT_POWER_FREQUENT" then
+        -- Update power display
+        if unit == "player" and activeModule and activeModule.powerTypeName then
+            local eventPowerType = (powerType or ""):upper()
+            local modulePowerType = (activeModule.powerTypeName or ""):upper()
+            if eventPowerType == modulePowerType then
                 UpdatePower()
             end
         end
