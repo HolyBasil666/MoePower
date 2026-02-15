@@ -254,6 +254,8 @@ eventFrame:RegisterEvent("UNIT_MAXPOWER")
 eventFrame:RegisterEvent("PLAYER_TALENT_UPDATE")
 eventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
 eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:SetScript("OnEvent", function(self, event, unit, powerType)
     if event == "PLAYER_LOGIN" then
         -- Delay initialization to ensure player stats are fully loaded
@@ -265,8 +267,7 @@ eventFrame:SetScript("OnEvent", function(self, event, unit, powerType)
         -- Recreate orbs when max power changes
         if unit == "player" and activeModule and activeModule.powerTypeName then
             local eventPowerType = (powerType or ""):upper()
-            local modulePowerType = (activeModule.powerTypeName or ""):upper()
-            if eventPowerType == modulePowerType then
+            if eventPowerType == activeModule.powerTypeName then
                 RecreateOrbs()
             end
         end
@@ -274,10 +275,12 @@ eventFrame:SetScript("OnEvent", function(self, event, unit, powerType)
         -- Update power display
         if unit == "player" and activeModule and activeModule.powerTypeName then
             local eventPowerType = (powerType or ""):upper()
-            local modulePowerType = (activeModule.powerTypeName or ""):upper()
-            if eventPowerType == modulePowerType then
+            if eventPowerType == activeModule.powerTypeName then
                 UpdatePower()
             end
         end
+    elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
+        -- Update display when entering or leaving combat
+        UpdatePower()
     end
 end)

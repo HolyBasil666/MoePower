@@ -102,13 +102,17 @@ function EvokerModule:CreateOrbs(frame, layoutConfig)
         essenceFrame:Show()
     end
 
-    -- Initialize visibility based on current power
+    -- Initialize visibility based on current power and combat state
+    local inCombat = UnitAffectingCombat("player")
     local currentPower = UnitPower("player", self.powerType)
     local startIndex = math.floor((maxPower - currentPower) / 2) + 1
     local endIndex = startIndex + currentPower - 1
 
+    -- Show orbs if in combat OR regenerating essence
+    local shouldShow = inCombat or currentPower < maxPower
+
     for i = 1, maxPower do
-        if i >= startIndex and i <= endIndex then
+        if shouldShow and i >= startIndex and i <= endIndex then
             -- Visible on load
             essence[i].frame:SetAlpha(cfg.activeAlpha)
             essence[i].active = true
@@ -124,10 +128,23 @@ end
 
 -- Update essence display based on current power
 function EvokerModule:UpdatePower(orbs)
+    local inCombat = UnitAffectingCombat("player")
     local currentPower = UnitPower("player", self.powerType)
     local maxPower = #orbs
 
-    -- Calculate centered range of essence to show
+    -- Hide orbs only if out of combat AND at max essence
+    if not inCombat and currentPower >= maxPower then
+        for i = 1, maxPower do
+            if orbs[i].active then
+                orbs[i].fadeIn:Stop()
+                orbs[i].fadeOut:Play()
+                orbs[i].active = false
+            end
+        end
+        return
+    end
+
+    -- Show orbs if in combat OR regenerating essence
     local startIndex = math.floor((maxPower - currentPower) / 2) + 1
     local endIndex = startIndex + currentPower - 1
 

@@ -203,6 +203,115 @@ frame:SetPoint("point", relativeTo, "relativePoint", x, y)
 4. **Avoid String Concatenation**: Use string.format() for better performance
 5. **Cache Values**: Store frequently accessed values (class, spec) instead of calling API repeatedly
 
+## Architecture & Optimization
+
+### Modular Class System
+
+MoePower uses a modular architecture where each class has its own module file in `Classes/`:
+
+```lua
+-- Class module structure
+local ClassModule = {
+    className = "EVOKER",                    -- Class identifier (matches UnitClass)
+    powerType = Enum.PowerType.Essence,      -- Power type enum
+    powerTypeName = "ESSENCE",               -- Power type name (UPPERCASE for event comparison)
+
+    config = { ... }  -- Visual configuration
+}
+
+function ClassModule:CreateOrbs(frame, layoutConfig)
+    -- Create and return orb frames
+end
+
+function ClassModule:UpdatePower(orbs)
+    -- Update orb visibility based on current power
+end
+
+MoePower:RegisterClassModule(ClassModule)
+```
+
+### Performance Optimizations
+
+#### 1. Power Type Name String Operations
+**Why**: `UNIT_POWER_FREQUENT` fires multiple times per second during combat. Repeated string operations (`upper()`) on every event add unnecessary overhead.
+
+**Solution**: Power type names are stored in uppercase (e.g., `"ESSENCE"`, `"HOLY_POWER"`), so we only need to uppercase the event power type once per comparison.
+
+```lua
+-- BAD: Two string operations on every power update (multiple times per second)
+local eventPowerType = (powerType or ""):upper()
+local modulePowerType = (activeModule.powerTypeName or ""):upper()
+if eventPowerType == modulePowerType then
+    UpdatePower()
+end
+
+-- GOOD: One string operation - module name already uppercase
+local eventPowerType = (powerType or ""):upper()
+if eventPowerType == activeModule.powerTypeName then
+    UpdatePower()
+end
+```
+
+**When adding new class modules**: Always store `powerTypeName` in UPPERCASE to avoid repeated string operations.
+
+#### 2. Combat Visibility (Future Settings)
+
+**Current Implementation**: Evoker checks `UnitAffectingCombat("player")` in its `UpdatePower()` to show orbs only in combat or when regenerating essence. Paladin shows orbs regardless of combat state.
+
+**Future User Setting**: Combat visibility should be a user-configurable option, not hardcoded per class.
+
+**Recommended Implementation**:
+```lua
+-- In MoePowerDB saved variables
+MoePowerDB = MoePowerDB or {
+    combatOnlyMode = false,  -- Global setting or per-class table
+    -- OR per-class:
+    combatSettings = {
+        EVOKER = "combat_or_regen",  -- "always", "combat_only", "combat_or_regen"
+        PALADIN = "always",
+    }
+}
+
+-- In event handler (MoePower.lua)
+elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
+    -- Check if user has combat visibility enabled
+    if MoePowerDB.combatOnlyMode then
+        UpdatePower()
+    end
+    -- OR check per-class setting
+    if MoePowerDB.combatSettings[activeModule.className] ~= "always" then
+        UpdatePower()
+    end
+end
+```
+
+**Why this approach**:
+- Framework controls when to call UpdatePower based on settings
+- Modules remain simple and focused on display logic
+- Easy to add UI configuration later
+- Performance impact is minimal (one table lookup vs. unconditional function call)
+
+**Alternative approach** (if modules need more control):
+- Pass combat state as parameter: `UpdatePower(orbs, inCombat, settings)`
+- Module decides visibility based on settings
+- More flexible but adds parameter passing overhead
+
+### Event Handling Optimization
+
+The framework filters events before calling module functions:
+
+```lua
+-- Efficient: Only call UpdatePower for relevant events
+if unit == "player" and activeModule and activeModule.powerTypeName then
+    local eventPowerType = (powerType or ""):upper()
+    if eventPowerType == activeModule.powerTypeName then
+        UpdatePower()  -- Only called when it matters
+    end
+end
+```
+
+**Key principle**: Filter early at framework level to avoid unnecessary module function calls.
+
 ## Saved Variables Best Practices
 
 ```lua
