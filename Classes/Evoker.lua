@@ -13,8 +13,6 @@ local EvokerModule = {
         orbSize = 25,            -- Orb frame size (container)
         backgroundScale = 1.0,   -- Background texture scale (multiplier of orbSize)
         foregroundScale = 1.0,   -- Foreground texture scale (multiplier of orbSize)
-        activeAlpha = 1.0,       -- Alpha when essence is active
-        transitionTime = 0.15,   -- Fade transition time in seconds (150ms)
         backgroundAtlas = "uf-essence-bg-active",  -- Background texture
         foregroundAtlas = "uf-essence-icon"        -- Foreground fill texture
     }
@@ -66,7 +64,7 @@ function EvokerModule:CreateOrbs(frame, layoutConfig)
         end
 
         -- Add fade animations
-        local fadeInGroup, fadeOutGroup = MoePower:AddOrbAnimations(essenceFrame, cfg)
+        local fadeInGroup, fadeOutGroup = MoePower:AddOrbAnimations(essenceFrame)
 
         -- Store references
         essence[i] = {
@@ -93,7 +91,7 @@ function EvokerModule:CreateOrbs(frame, layoutConfig)
     for i = 1, maxPower do
         if shouldShow and i >= startIndex and i <= endIndex then
             -- Visible on load
-            essence[i].frame:SetAlpha(cfg.activeAlpha)
+            essence[i].frame:SetAlpha(MoePower.ACTIVE_ALPHA)
             essence[i].active = true
         else
             -- Hidden on load
@@ -110,20 +108,9 @@ function EvokerModule:UpdatePower(orbs)
     local inCombat = UnitAffectingCombat("player")
     local currentPower = UnitPower("player", self.powerType)
     local maxPower = #orbs
+    local shouldHide = not inCombat and currentPower >= maxPower
 
-    -- Hide orbs only if out of combat AND at max essence
-    if not inCombat and currentPower >= maxPower then
-        for i = 1, maxPower do
-            if orbs[i].active then
-                orbs[i].fadeIn:Stop()
-                orbs[i].fadeOut:Play()
-                orbs[i].active = false
-            end
-        end
-        return
-    end
-
-    -- Show orbs if in combat OR regenerating essence
+    -- Always update orb display first
     local startIndex = math.floor((maxPower - currentPower) / 2) + 1
     local endIndex = startIndex + currentPower - 1
 
@@ -141,6 +128,13 @@ function EvokerModule:UpdatePower(orbs)
                 orbs[i].active = false
             end
         end
+    end
+
+    -- Schedule delayed hide or cancel pending hide
+    if shouldHide then
+        MoePower:ScheduleHideOrbs(orbs, 1)
+    else
+        MoePower:CancelHideOrbs()
     end
 end
 

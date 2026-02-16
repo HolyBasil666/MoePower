@@ -2,6 +2,9 @@
 
 local _, MoePower = ...
 
+-- Rune texture mapping for positions 1-5 (hoisted to avoid table creation in hot path)
+local runeMap = {4, 2, 1, 3, 5}
+
 -- Paladin-specific configuration
 local PaladinModule = {
     className = "PALADIN",
@@ -13,10 +16,7 @@ local PaladinModule = {
         orbSize = 26,            -- Orb frame size (container)
         backgroundScale = 1.0,   -- Background texture scale (multiplier of orbSize)
         foregroundScale = 1.0,   -- Foreground texture scale (multiplier of orbSize)
-        activeAlpha = 1.0,       -- Alpha when holy power is active
-        transitionTime = 0.15,   -- Fade transition time in seconds (150ms)
         backgroundAtlas = nil,   -- No background texture
-        -- foregroundAtlas = "uf-holypower-rune1-ready"  -- Foreground fill texture
     }
 }
 
@@ -29,9 +29,6 @@ function PaladinModule:CreateOrbs(frame, layoutConfig)
     local arcRadius = layoutConfig.arcRadius
     local arcSpan = layoutConfig.arcSpan
     local startAngle = 90 + (arcSpan / 2)  -- Start from top-left
-
-    -- Rune texture mapping for positions 1-5
-    local runeMap = {4, 2, 1, 3, 5}
 
     for i = 1, maxPower do
         -- Calculate position in arc
@@ -72,7 +69,7 @@ function PaladinModule:CreateOrbs(frame, layoutConfig)
         end
 
         -- Add fade animations
-        local fadeInGroup, fadeOutGroup = MoePower:AddOrbAnimations(powerFrame, cfg)
+        local fadeInGroup, fadeOutGroup = MoePower:AddOrbAnimations(powerFrame)
 
         -- Store references
         holyPower[i] = {
@@ -98,7 +95,7 @@ function PaladinModule:CreateOrbs(frame, layoutConfig)
     for i = 1, maxPower do
         if i >= startIndex and i <= endIndex then
             -- Visible on load
-            holyPower[i].frame:SetAlpha(cfg.activeAlpha)
+            holyPower[i].frame:SetAlpha(MoePower.ACTIVE_ALPHA)
             holyPower[i].active = true
             -- Update texture based on power level
             local runeNumber = runeMap[i]
@@ -111,6 +108,7 @@ function PaladinModule:CreateOrbs(frame, layoutConfig)
         end
     end
 
+    self.lastTextureVariant = textureVariant
     return holyPower
 end
 
@@ -125,21 +123,22 @@ function PaladinModule:UpdatePower(orbs)
 
     -- Determine texture variant based on power level
     local textureVariant = (currentPower <= 2) and "active" or "ready"
-
-    -- Rune texture mapping for positions 1-5
-    local runeMap = {4, 2, 1, 3, 5}
+    local variantChanged = textureVariant ~= self.lastTextureVariant
+    self.lastTextureVariant = textureVariant
 
     for i = 1, maxPower do
         if i >= startIndex and i <= endIndex then
-            if not orbs[i].active then
+            local wasActive = orbs[i].active
+            if not wasActive then
                 orbs[i].fadeOut:Stop()
                 orbs[i].fadeIn:Play()
                 orbs[i].active = true
             end
-            -- Update texture based on power level
-            local runeNumber = runeMap[i]
-            local runeAtlas = "uf-holypower-rune" .. runeNumber .. "-" .. textureVariant
-            pcall(orbs[i].foreground.SetAtlas, orbs[i].foreground, runeAtlas)
+            -- Only update texture when variant changed or orb just activated
+            if variantChanged or not wasActive then
+                local runeAtlas = "uf-holypower-rune" .. runeMap[i] .. "-" .. textureVariant
+                pcall(orbs[i].foreground.SetAtlas, orbs[i].foreground, runeAtlas)
+            end
         else
             if orbs[i].active then
                 orbs[i].fadeIn:Stop()

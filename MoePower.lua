@@ -16,6 +16,8 @@ MoePowerDB = MoePowerDB or {}
 local GRID_SIZE = 10  -- Snap to grid every 10 pixels
 local DEFAULT_POSITION_X = 0
 local DEFAULT_POSITION_Y = -80
+local TRANSITION_TIME = 0.1  -- Fade animation duration in seconds
+local ACTIVE_ALPHA = 1.0     -- Alpha when power orb is active
 
 -- Arc layout settings (shared across all class modules)
 local ARC_RADIUS = 140    -- Distance from center
@@ -145,29 +147,29 @@ local function SetupEditMode()
     end
 end
 
--- Create fade animations for an orb frame
-function MoePower:AddOrbAnimations(orbFrame, config)
-    local activeAlpha = config.activeAlpha or 1.0
-    local transitionTime = config.transitionTime or 0.15
+-- Expose active alpha for class modules
+MoePower.ACTIVE_ALPHA = ACTIVE_ALPHA
 
+-- Create fade animations for an orb frame
+function MoePower:AddOrbAnimations(orbFrame)
     -- Fade in animation
     local fadeInGroup = orbFrame:CreateAnimationGroup()
     local fadeIn = fadeInGroup:CreateAnimation("Alpha")
     fadeIn:SetFromAlpha(0)
-    fadeIn:SetToAlpha(activeAlpha)
-    fadeIn:SetDuration(transitionTime)
+    fadeIn:SetToAlpha(ACTIVE_ALPHA)
+    fadeIn:SetDuration(TRANSITION_TIME)
     fadeIn:SetSmoothing("IN")
 
     fadeInGroup:SetScript("OnFinished", function()
-        orbFrame:SetAlpha(activeAlpha)
+        orbFrame:SetAlpha(ACTIVE_ALPHA)
     end)
 
     -- Fade out animation
     local fadeOutGroup = orbFrame:CreateAnimationGroup()
     local fadeOut = fadeOutGroup:CreateAnimation("Alpha")
-    fadeOut:SetFromAlpha(activeAlpha)
+    fadeOut:SetFromAlpha(ACTIVE_ALPHA)
     fadeOut:SetToAlpha(0)
-    fadeOut:SetDuration(transitionTime)
+    fadeOut:SetDuration(TRANSITION_TIME)
     fadeOut:SetSmoothing("OUT")
 
     fadeOutGroup:SetScript("OnFinished", function()
@@ -175,6 +177,37 @@ function MoePower:AddOrbAnimations(orbFrame, config)
     end)
 
     return fadeInGroup, fadeOutGroup
+end
+
+-- Delayed hide mechanism for orbs (usable by any class module)
+local hideVersion = 0
+local hideActive = false
+
+function MoePower:ScheduleHideOrbs(orbs, delay)
+    if not hideActive then
+        hideActive = true
+        hideVersion = hideVersion + 1
+        local thisVersion = hideVersion
+        C_Timer.After(delay or 1, function()
+            if hideVersion == thisVersion then
+                hideActive = false
+                for i = 1, #orbs do
+                    if orbs[i].active then
+                        orbs[i].fadeIn:Stop()
+                        orbs[i].fadeOut:Play()
+                        orbs[i].active = false
+                    end
+                end
+            end
+        end)
+    end
+end
+
+function MoePower:CancelHideOrbs()
+    if hideActive then
+        hideVersion = hideVersion + 1
+        hideActive = false
+    end
 end
 
 -- Update power display (called by event handler)
