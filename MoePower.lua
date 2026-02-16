@@ -23,6 +23,10 @@ local ACTIVE_ALPHA = 1.0     -- Alpha when power orb is active
 local ARC_RADIUS = 140    -- Distance from center
 local BASE_ORB_SPACING = 12.5  -- Degrees between orbs
 
+-- State
+local inEditMode = false
+local UpdatePower  -- Forward declaration (referenced by SetupEditMode callbacks)
+
 -- Class module registry
 local classModules = {}
 
@@ -75,6 +79,18 @@ local function LoadPosition()
     end
 end
 
+-- Show all orbs at max power (for Edit Mode preview)
+local function ShowAllOrbs()
+    MoePower:CancelHideOrbs()
+    for i = 1, #powerOrbs do
+        if not powerOrbs[i].active then
+            powerOrbs[i].fadeOut:Stop()
+            powerOrbs[i].fadeIn:Play()
+            powerOrbs[i].active = true
+        end
+    end
+end
+
 -- Edit Mode integration
 local function SetupEditMode()
     -- Make frame movable
@@ -93,7 +109,7 @@ local function SetupEditMode()
     -- Visual indicator for Edit Mode
     local bg = dragFrame:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(dragFrame)
-    bg:SetColorTexture(0, 1, 0, 0.3)
+    bg:SetColorTexture(0, 1, 0, 0.15)
 
     local label = dragFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     label:SetPoint("CENTER")
@@ -121,22 +137,28 @@ local function SetupEditMode()
     if EditModeManagerFrame then
         hooksecurefunc(EditModeManagerFrame, "EnterEditMode", function()
             print("|cff00ff00MoePower:|r Edit Mode entered")
+            inEditMode = true
             if frame and frame.dragFrame then
                 frame.dragFrame:Show()
             end
+            ShowAllOrbs()
         end)
 
         hooksecurefunc(EditModeManagerFrame, "ExitEditMode", function()
             print("|cff00ff00MoePower:|r Edit Mode exited")
+            inEditMode = false
             if frame and frame.dragFrame then
                 frame.dragFrame:Hide()
             end
+            UpdatePower()
         end)
 
         -- Check if already in Edit Mode
         if EditModeManagerFrame:IsEditModeActive() then
             print("|cff00ff00MoePower:|r Already in Edit Mode")
+            inEditMode = true
             dragFrame:Show()
+            ShowAllOrbs()
         end
     else
         print("|cff00ff00MoePower:|r EditModeManagerFrame not found - using fallback")
@@ -211,7 +233,8 @@ function MoePower:CancelHideOrbs()
 end
 
 -- Update power display (called by event handler)
-local function UpdatePower()
+UpdatePower = function()
+    if inEditMode then return end
     if activeModule and activeModule.UpdatePower then
         activeModule:UpdatePower(powerOrbs)
     end

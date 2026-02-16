@@ -4,6 +4,7 @@ local _, MoePower = ...
 
 -- Rune texture mapping for positions 1-5 (hoisted to avoid table creation in hot path)
 local runeMap = {4, 2, 1, 3, 5}
+local ACTIVE_VARIANT_ALPHA = MoePower.ACTIVE_ALPHA * 2 / 3  -- Alpha for "active" variant (<=2 HP)
 
 -- Paladin-specific configuration
 local PaladinModule = {
@@ -97,10 +98,11 @@ function PaladinModule:CreateOrbs(frame, layoutConfig)
             -- Visible on load
             holyPower[i].frame:SetAlpha(MoePower.ACTIVE_ALPHA)
             holyPower[i].active = true
-            -- Update texture based on power level
+            -- Update texture and alpha based on power level
             local runeNumber = runeMap[i]
             local runeAtlas = "uf-holypower-rune" .. runeNumber .. "-" .. textureVariant
             pcall(holyPower[i].foreground.SetAtlas, holyPower[i].foreground, runeAtlas)
+            holyPower[i].foreground:SetAlpha(textureVariant == "active" and ACTIVE_VARIANT_ALPHA or MoePower.ACTIVE_ALPHA)
         else
             -- Hidden on load
             holyPower[i].frame:SetAlpha(0)
@@ -134,10 +136,11 @@ function PaladinModule:UpdatePower(orbs)
                 orbs[i].fadeIn:Play()
                 orbs[i].active = true
             end
-            -- Only update texture when variant changed or orb just activated
+            -- Only update texture/alpha when variant changed or orb just activated
             if variantChanged or not wasActive then
                 local runeAtlas = "uf-holypower-rune" .. runeMap[i] .. "-" .. textureVariant
                 pcall(orbs[i].foreground.SetAtlas, orbs[i].foreground, runeAtlas)
+                orbs[i].foreground:SetAlpha(textureVariant == "active" and ACTIVE_VARIANT_ALPHA or 1.0)
             end
         else
             if orbs[i].active then
