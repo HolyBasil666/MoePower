@@ -266,6 +266,7 @@ local function Initialize()
         frame:SetSize(400, 400)
         frame:SetPoint("CENTER", UIParent, "CENTER", DEFAULT_POSITION_X, DEFAULT_POSITION_Y)
         frame:SetFrameStrata("MEDIUM")
+        MoePower.frame = frame  -- Expose for Options.lua ApplyScale
         LoadPosition()
         SetupEditMode()
     end
@@ -279,6 +280,7 @@ local function Initialize()
 
     BuildOrbs()
     UpdatePower()
+    MoePower:ApplyScale()
     frame:Show()
 
     local className = activeModule.className

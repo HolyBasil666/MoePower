@@ -9,6 +9,7 @@
 ## SavedVariablesPerCharacter:
 
 MoePower.lua
+Options.lua
 Classes\Evoker.lua
 Classes\Paladin.lua
 Classes\Hunter.lua

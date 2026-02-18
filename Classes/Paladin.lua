@@ -150,6 +150,15 @@ function PaladinModule:UpdatePower(orbs)
             end
         end
     end
+
+    -- Respect paladinHideWhenFull setting (default: always show)
+    if MoePower.settings and MoePower.settings.paladinHideWhenFull then
+        if not UnitAffectingCombat("player") and currentPower >= maxPower then
+            MoePower:ScheduleHideOrbs(orbs, 1)
+        else
+            MoePower:CancelHideOrbs()
+        end
+    end
 end
 
 -- Register this module with the framework
