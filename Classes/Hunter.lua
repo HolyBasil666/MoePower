@@ -29,8 +29,9 @@ local FILL_ORDER      = {2, 1, 3}  -- center first, then left, then right
 local SURVIVAL_SPEC = 3  -- GetSpecialization() index for Survival
 
 local HunterModule = {
-    className = "HUNTER",
-    maxPower  = TIP_MAX_STACKS,
+    className   = "HUNTER",
+    maxPower    = TIP_MAX_STACKS,
+    tracksAura  = true,  -- Opt-in: UNIT_AURA → UpdatePower (out-of-combat aura sync)
     -- No powerType / powerTypeName: framework uses maxPower and routes UNIT_SPELLCAST_SUCCEEDED
     config = {
         orbSize         = 20,

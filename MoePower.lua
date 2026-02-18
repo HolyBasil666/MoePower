@@ -297,6 +297,7 @@ eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 eventFrame:RegisterEvent("UNIT_AURA")
+eventFrame:RegisterEvent("RUNE_POWER_UPDATE")
 eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
     if event == "PLAYER_LOGIN" then
         -- Delay to ensure player stats are fully loaded
@@ -326,10 +327,13 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
             UpdatePower()
         end
     elseif event == "UNIT_AURA" then
-        -- Sync aura-tracking modules out of combat when buffs change
-        if arg1 == "player" and activeModule and not activeModule.powerTypeName then
+        -- Sync aura-tracking modules out of combat when buffs change (opt-in via tracksAura)
+        if arg1 == "player" and activeModule and activeModule.tracksAura then
             UpdatePower()
         end
+    elseif event == "RUNE_POWER_UPDATE" then
+        -- Fires on every individual rune spend/recharge (DK only)
+        UpdatePower()
     elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
         UpdatePower()
     end
