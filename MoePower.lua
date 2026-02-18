@@ -1,7 +1,7 @@
 -- MoePower: Class Power HUD Framework
 -- Modular architecture supporting multiple classes
 
-local addonName, MoePower = ...
+local _, MoePower = ...
 
 -- Initialize addon namespace
 MoePower = MoePower or {}
@@ -13,14 +13,14 @@ local activeModule
 MoePowerDB = MoePowerDB or {}
 
 -- Constants
-local GRID_SIZE = 10  -- Snap to grid every 10 pixels
+local GRID_SIZE          = 10
 local DEFAULT_POSITION_X = 0
 local DEFAULT_POSITION_Y = -80
-local TRANSITION_TIME = 0.1  -- Fade animation duration in seconds
-local ACTIVE_ALPHA = 1.0     -- Alpha when power orb is active
+local TRANSITION_TIME    = 0.1   -- Fade animation duration in seconds
+local ACTIVE_ALPHA       = 1.0   -- Alpha when power orb is active
 
 -- Arc layout settings (shared across all class modules)
-local ARC_RADIUS = 140    -- Distance from center
+local ARC_RADIUS      = 140   -- Distance from center
 local BASE_ORB_SPACING = 12.5  -- Degrees between orbs
 
 -- State
@@ -30,18 +30,22 @@ local UpdatePower  -- Forward declaration (referenced by SetupEditMode callbacks
 -- Class module registry
 local classModules = {}
 
--- Register a class module
 function MoePower:RegisterClassModule(module)
     if module.className then
         classModules[module.className] = module
-        -- print("|cff00ff00MoePower:|r Registered module for " .. module.className)
     end
 end
 
--- Get the active class module
+-- Get the active class module (respects optional specIndex filter)
 local function GetClassModule()
     local _, classFilename = UnitClass("player")
-    return classModules[classFilename]
+    local module = classModules[classFilename]
+    if module and module.specIndex then
+        if GetSpecialization() ~= module.specIndex then
+            return nil
+        end
+    end
+    return module
 end
 
 -- Snap coordinate to grid
@@ -52,22 +56,11 @@ end
 -- Save frame position with grid snapping
 local function SavePosition()
     local point, _, relativePoint, x, y = frame:GetPoint()
-
-    -- Snap to grid
     x = SnapToGrid(x)
     y = SnapToGrid(y)
-
-    -- Apply snapped position
     frame:ClearAllPoints()
     frame:SetPoint(point, UIParent, relativePoint, x, y)
-
-    -- Save snapped position
-    MoePowerDB.position = {
-        point = point,
-        relativePoint = relativePoint,
-        x = x,
-        y = y
-    }
+    MoePowerDB.position = { point = point, relativePoint = relativePoint, x = x, y = y }
 end
 
 -- Load saved position
@@ -93,7 +86,6 @@ end
 
 -- Edit Mode integration
 local function SetupEditMode()
-    -- Make frame movable
     frame:SetMovable(true)
     frame:EnableMouse(false)  -- Mouse handled by dragFrame
     frame:SetClampedToScreen(true)
@@ -116,11 +108,8 @@ local function SetupEditMode()
     label:SetText("MoePower")
     label:SetTextColor(1, 1, 1, 1)
 
-    -- Drag functionality
     dragFrame:SetScript("OnMouseDown", function(self, button)
-        if button == "LeftButton" then
-            frame:StartMoving()
-        end
+        if button == "LeftButton" then frame:StartMoving() end
     end)
 
     dragFrame:SetScript("OnMouseUp", function(self, button)
@@ -130,38 +119,27 @@ local function SetupEditMode()
         end
     end)
 
-    -- Store reference to drag frame
     frame.dragFrame = dragFrame
 
-    -- Hook into Edit Mode manager if it exists
     if EditModeManagerFrame then
         hooksecurefunc(EditModeManagerFrame, "EnterEditMode", function()
-            print("|cff00ff00MoePower:|r Edit Mode entered")
             inEditMode = true
-            if frame and frame.dragFrame then
-                frame.dragFrame:Show()
-            end
+            frame.dragFrame:Show()
             ShowAllOrbs()
         end)
 
         hooksecurefunc(EditModeManagerFrame, "ExitEditMode", function()
-            print("|cff00ff00MoePower:|r Edit Mode exited")
             inEditMode = false
-            if frame and frame.dragFrame then
-                frame.dragFrame:Hide()
-            end
+            frame.dragFrame:Hide()
             UpdatePower()
         end)
 
-        -- Check if already in Edit Mode
         if EditModeManagerFrame:IsEditModeActive() then
-            print("|cff00ff00MoePower:|r Already in Edit Mode")
             inEditMode = true
             dragFrame:Show()
             ShowAllOrbs()
         end
     else
-        print("|cff00ff00MoePower:|r EditModeManagerFrame not found - using fallback")
         -- Fallback: always show a small handle
         dragFrame:SetSize(80, 30)
         dragFrame:SetPoint("CENTER", frame, "BOTTOM", 0, 0)
@@ -174,36 +152,28 @@ MoePower.ACTIVE_ALPHA = ACTIVE_ALPHA
 
 -- Create fade animations for an orb frame
 function MoePower:AddOrbAnimations(orbFrame)
-    -- Fade in animation
     local fadeInGroup = orbFrame:CreateAnimationGroup()
     local fadeIn = fadeInGroup:CreateAnimation("Alpha")
     fadeIn:SetFromAlpha(0)
     fadeIn:SetToAlpha(ACTIVE_ALPHA)
     fadeIn:SetDuration(TRANSITION_TIME)
     fadeIn:SetSmoothing("IN")
+    fadeInGroup:SetScript("OnFinished", function() orbFrame:SetAlpha(ACTIVE_ALPHA) end)
 
-    fadeInGroup:SetScript("OnFinished", function()
-        orbFrame:SetAlpha(ACTIVE_ALPHA)
-    end)
-
-    -- Fade out animation
     local fadeOutGroup = orbFrame:CreateAnimationGroup()
     local fadeOut = fadeOutGroup:CreateAnimation("Alpha")
     fadeOut:SetFromAlpha(ACTIVE_ALPHA)
     fadeOut:SetToAlpha(0)
     fadeOut:SetDuration(TRANSITION_TIME)
     fadeOut:SetSmoothing("OUT")
-
-    fadeOutGroup:SetScript("OnFinished", function()
-        orbFrame:SetAlpha(0)
-    end)
+    fadeOutGroup:SetScript("OnFinished", function() orbFrame:SetAlpha(0) end)
 
     return fadeInGroup, fadeOutGroup
 end
 
 -- Delayed hide mechanism for orbs (usable by any class module)
 local hideVersion = 0
-local hideActive = false
+local hideActive  = false
 
 function MoePower:ScheduleHideOrbs(orbs, delay)
     if not hideActive then
@@ -240,28 +210,18 @@ UpdatePower = function()
     end
 end
 
--- Recreate orbs (called when max power changes)
-local function RecreateOrbs()
-    if not activeModule or not activeModule.CreateOrbs or not frame then
-        return
-    end
+-- Shared orb management helpers
 
-    -- Get current max power
-    local maxPower = UnitPowerMax("player", activeModule.powerType)
-    if maxPower == 0 then
-        maxPower = 6  -- Default fallback
-    end
+-- Resolve orb count for a module (powerType or fixed maxPower field)
+local function GetModuleMaxPower(module)
+    local maxPower = module.powerType
+        and UnitPowerMax("player", module.powerType)
+        or 0
+    return maxPower > 0 and maxPower or (module.maxPower or 6)
+end
 
-    -- Return if max power unchanged
-    local currentOrbCount = #powerOrbs
-    if currentOrbCount == maxPower then
-        return
-    end
-
-    -- Calculate arc span based on orb count
-    local arcSpan = BASE_ORB_SPACING * (maxPower - 1)
-
-    -- Clear existing orbs
+-- Destroy and clear all existing orbs
+local function ClearOrbs()
     for _, orb in ipairs(powerOrbs) do
         if orb.frame then
             orb.frame:Hide()
@@ -269,69 +229,60 @@ local function RecreateOrbs()
         end
     end
     powerOrbs = {}
-
-    -- Create new orbs
-    local layoutConfig = {
-        arcRadius = ARC_RADIUS,
-        arcSpan = arcSpan
-    }
-    powerOrbs = activeModule:CreateOrbs(frame, layoutConfig)
-
-    -- Update display
-    UpdatePower()
-
-    print("|cff00ff00MoePower:|r Orbs recreated for " .. maxPower .. " max power")
 end
 
--- Initialize addon
+-- Create orbs for the active module
+local function BuildOrbs()
+    if not activeModule or not activeModule.CreateOrbs then return end
+    local maxPower = GetModuleMaxPower(activeModule)
+    local arcSpan  = BASE_ORB_SPACING * (maxPower - 1)
+    powerOrbs = activeModule:CreateOrbs(frame, { arcRadius = ARC_RADIUS, arcSpan = arcSpan })
+end
+
+-- Recreate orbs when max power changes (e.g. talent change within the same spec)
+local function RecreateOrbs()
+    if not activeModule or not activeModule.CreateOrbs or not frame then return end
+    local maxPower = GetModuleMaxPower(activeModule)
+    if #powerOrbs == maxPower then return end  -- count unchanged, skip
+    ClearOrbs()
+    BuildOrbs()
+    UpdatePower()
+end
+
+-- Initialize (or reinitialize) the addon — safe to call multiple times.
+-- On first call: creates the main frame and Edit Mode hooks.
+-- On subsequent calls (e.g. spec change): reuses the existing frame.
 local function Initialize()
-    -- Get class module
     activeModule = GetClassModule()
 
+    -- First run: create the persistent main frame
+    if not frame then
+        if not activeModule then
+            local _, classFilename = UnitClass("player")
+            print("|cff00ff00MoePower:|r No module found for " .. (classFilename or "Unknown") .. " class")
+            return
+        end
+        frame = CreateFrame("Frame", "MoePowerFrame", UIParent)
+        frame:SetSize(400, 400)
+        frame:SetPoint("CENTER", UIParent, "CENTER", DEFAULT_POSITION_X, DEFAULT_POSITION_Y)
+        frame:SetFrameStrata("MEDIUM")
+        LoadPosition()
+        SetupEditMode()
+    end
+
+    ClearOrbs()
+
     if not activeModule then
-        local _, classFilename = UnitClass("player")
-        print("|cff00ff00MoePower:|r No module found for " .. (classFilename or "Unknown") .. " class")
+        frame:Hide()
         return
     end
 
-    -- Create main frame
-    frame = CreateFrame("Frame", "MoePowerFrame", UIParent)
-    frame:SetSize(400, 400)
-    frame:SetPoint("CENTER", UIParent, "CENTER", DEFAULT_POSITION_X, DEFAULT_POSITION_Y)
-    frame:SetFrameStrata("MEDIUM")
-
-    -- Load saved position
-    LoadPosition()
-
-    -- Setup Edit Mode
-    SetupEditMode()
-
-    -- Create power display
-    if activeModule.CreateOrbs then
-        -- Get max power
-        local maxPower = UnitPowerMax("player", activeModule.powerType)
-        if maxPower == 0 then
-            maxPower = 6  -- Default fallback
-        end
-
-        -- Calculate arc span
-        local arcSpan = BASE_ORB_SPACING * (maxPower - 1)
-
-        local layoutConfig = {
-            arcRadius = ARC_RADIUS,
-            arcSpan = arcSpan
-        }
-        powerOrbs = activeModule:CreateOrbs(frame, layoutConfig)
-    end
-
-    -- Initial update
+    BuildOrbs()
     UpdatePower()
-
     frame:Show()
 
     local className = activeModule.className
-    local formattedName = className:sub(1, 1):upper() .. className:sub(2):lower()
-    print("|cff00ff00MoePower:|r " .. formattedName .. " module loaded")
+    print("|cff00ff00MoePower:|r " .. className:sub(1, 1):upper() .. className:sub(2):lower() .. " module loaded")
 end
 
 -- Event handler
@@ -344,31 +295,42 @@ eventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
 eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-eventFrame:SetScript("OnEvent", function(self, event, unit, powerType)
+eventFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+eventFrame:RegisterEvent("UNIT_AURA")
+eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
     if event == "PLAYER_LOGIN" then
-        -- Delay initialization to ensure player stats are fully loaded
+        -- Delay to ensure player stats are fully loaded
         C_Timer.After(1, Initialize)
-    elseif event == "PLAYER_TALENT_UPDATE" or event == "TRAIT_CONFIG_UPDATED" or event == "PLAYER_SPECIALIZATION_CHANGED" then
-        -- Delay recreation to ensure stats are fully updated
+    elseif event == "PLAYER_TALENT_UPDATE" or event == "TRAIT_CONFIG_UPDATED" then
+        -- Delay to ensure updated stats are available
         C_Timer.After(1, RecreateOrbs)
+    elseif event == "PLAYER_SPECIALIZATION_CHANGED" then
+        -- Spec change may activate a different module entirely
+        C_Timer.After(1, Initialize)
     elseif event == "UNIT_MAXPOWER" then
-        -- Recreate orbs when max power changes
-        if unit == "player" and activeModule and activeModule.powerTypeName then
-            local eventPowerType = (powerType or ""):upper()
-            if eventPowerType == activeModule.powerTypeName then
+        if arg1 == "player" and activeModule and activeModule.powerTypeName then
+            if (arg2 or ""):upper() == activeModule.powerTypeName then
                 RecreateOrbs()
             end
         end
     elseif event == "UNIT_POWER_FREQUENT" then
-        -- Update power display
-        if unit == "player" and activeModule and activeModule.powerTypeName then
-            local eventPowerType = (powerType or ""):upper()
-            if eventPowerType == activeModule.powerTypeName then
+        if arg1 == "player" and activeModule and activeModule.powerTypeName then
+            if (arg2 or ""):upper() == activeModule.powerTypeName then
                 UpdatePower()
             end
         end
+    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+        -- Route spell casts to modules that track via spells (arg2=castGUID, arg3=spellID)
+        if arg1 == "player" and activeModule and activeModule.OnSpellCast then
+            activeModule:OnSpellCast(arg3, arg2)
+            UpdatePower()
+        end
+    elseif event == "UNIT_AURA" then
+        -- Sync aura-tracking modules out of combat when buffs change
+        if arg1 == "player" and activeModule and not activeModule.powerTypeName then
+            UpdatePower()
+        end
     elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
-        -- Update display when entering or leaving combat
         UpdatePower()
     end
 end)
