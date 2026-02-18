@@ -2,7 +2,7 @@
 ## Title: MoePower
 ## Notes: Moe's Class Power HUD
 ## Author: HolyBasil666
-## Version: 1.0.0
+## Version: 0.9
 ## RequiredDeps:
 ## X-Curse-Project-ID: 999999
 ## SavedVariables: MoePowerDB

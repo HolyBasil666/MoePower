@@ -4,7 +4,7 @@ A lightweight, modular class power HUD for **World of Warcraft: The War Within**
 
 Displays your class resource (Holy Power, Essence, combo points, etc.) as animated orbs arranged in an arc around your character — no external libraries required.
 
-![Version: 1.0.0](https://img.shields.io/badge/Version-1.0.0-green)
+![Version: 0.9](https://img.shields.io/badge/Version-0.9-orange)
 
 ---
 
