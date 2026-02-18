@@ -24,6 +24,7 @@ Displays your class resource (Holy Power, Essence, combo points, etc.) as animat
 | Paladin | Holy Power | 5 orbs; rune textures swap at low HP |
 | Evoker | Essence | 5–6 orbs (talent-dependent); hides at full essence out of combat |
 | Hunter | Tip of the Spear | Survival spec only; 3 orbs tracked via spell cast events |
+| Death Knight | Runes | 6 orbs; spec-specific textures (Blood/Frost/Unholy); hides at full runes out of combat |
 
 ---
 
