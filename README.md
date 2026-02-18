@@ -2,17 +2,19 @@
 
 A lightweight, modular class power HUD for **World of Warcraft: The War Within**.
 
-Displays your class resource (Holy Power, Essence, combo points, etc.) as animated orbs arranged in an arc around your character — no external libraries required.
+Displays your class resource (Holy Power, Essence, combo points, etc.) as animated orbs arranged in an arc or horizontal line around your character — no external libraries required.
 
-![Version: 0.9](https://img.shields.io/badge/Version-0.9-orange)
+![Version: 1.0](https://img.shields.io/badge/Version-1.0-blue)
 
 ---
 
 ## Features
 
-- **Arc orb display** — power orbs arranged in a smooth arc, growing from the center outward
+- **Arc or horizontal line display** — switch between a smooth arc and a flat horizontal line in the options panel
+- **Orb fill direction** — choose center outward (default), left → right, or right → left
 - **Fade animations** — smooth fade in/out transitions on power gain/loss
 - **Edit Mode integration** — drag to reposition using WoW's built-in Edit Mode; position saves between sessions
+- **Options panel** — `Game Menu → Options → AddOns → MoePower`; configure scale, layout, fill direction, and per-class toggles
 - **No dependencies** — uses only native Blizzard APIs
 
 ---
@@ -42,5 +44,19 @@ Displays your class resource (Holy Power, Essence, combo points, etc.) as animat
 1. Open **Edit Mode** (`Escape → Edit Mode` or the default keybind)
 2. Drag the **MoePower** handle to your preferred position
 3. Exit Edit Mode — position is saved automatically
+
+---
+
+## Options
+
+Open via `Game Menu → Options → AddOns → MoePower`.
+
+| Setting | Description |
+|---------|-------------|
+| **Orb Scale** | Global size multiplier (0.5× – 2.0×), applied live |
+| **Layout** | Arc (default) or Horizontal line |
+| **Orb Fill Direction** | Center outward (default), Left → Right, or Right → Left |
+| **Paladin: Hide at max** | Hide Paladin orbs at full Holy Power when out of combat |
+| **Modules** | Enable or disable individual class modules |
 
 ---

@@ -26,17 +26,26 @@ function EvokerModule:CreateOrbs(frame, layoutConfig)
         maxPower = 6  -- Default fallback
     end
 
-    local cfg = self.config
-    local arcRadius = layoutConfig.arcRadius
-    local arcSpan = layoutConfig.arcSpan
-    local startAngle = 90 + (arcSpan / 2)  -- Start from top-left
+    local cfg        = self.config
+    local layout     = layoutConfig.layout or "arc"
+    local arcRadius  = layoutConfig.arcRadius
+    local arcSpan    = layoutConfig.arcSpan
+    local startAngle = 90 + (arcSpan / 2)
+    local arcStep    = maxPower > 1 and arcSpan / (maxPower - 1) or 0
+    local horizStep  = cfg.orbSize + 4
 
     for i = 1, maxPower do
-        -- Calculate position in arc
-        local angle = startAngle - ((i - 1) * (arcSpan / (maxPower - 1)))
-        local radian = math.rad(angle)
-        local x = arcRadius * math.cos(radian)
-        local y = arcRadius * math.sin(radian)
+        -- Calculate orb position
+        local x, y
+        if layout == "horizontal" then
+            x = -(horizStep * (maxPower - 1) / 2) + (i - 1) * horizStep
+            y = arcRadius
+        else
+            local angle = startAngle - (i - 1) * arcStep
+            local radian = math.rad(angle)
+            x = arcRadius * math.cos(radian)
+            y = arcRadius * math.sin(radian)
+        end
 
         -- Create essence container frame
         local essenceFrame = CreateFrame("Frame", nil, frame)
@@ -82,8 +91,7 @@ function EvokerModule:CreateOrbs(frame, layoutConfig)
     -- Initialize visibility based on current power and combat state
     local inCombat = UnitAffectingCombat("player")
     local currentPower = UnitPower("player", self.powerType)
-    local startIndex = math.floor((maxPower - currentPower) / 2) + 1
-    local endIndex = startIndex + currentPower - 1
+    local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, maxPower)
 
     -- Show orbs if in combat OR regenerating essence
     local shouldShow = inCombat or currentPower < maxPower
@@ -111,8 +119,7 @@ function EvokerModule:UpdatePower(orbs)
     local shouldHide = not inCombat and currentPower >= maxPower
 
     -- Always update orb display first
-    local startIndex = math.floor((maxPower - currentPower) / 2) + 1
-    local endIndex = startIndex + currentPower - 1
+    local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, maxPower)
 
     for i = 1, maxPower do
         if i >= startIndex and i <= endIndex then

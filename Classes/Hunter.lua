@@ -24,7 +24,6 @@ local PRIMAL_SURGE_ID = 1272154  -- Talent: Kill Command grants 2 stacks
 local TWIN_FANGS_ID   = 1272139  -- Talent: Takedown grants 3 stacks
 local TIP_SPELL_ID    = 260286   -- Tip of the Spear buff (for out-of-combat aura sync)
 local TIP_MAX_STACKS  = 3
-local FILL_ORDER      = {2, 1, 3}  -- center first, then left, then right
 
 local SURVIVAL_SPEC = 3  -- GetSpecialization() index for Survival
 
@@ -106,19 +105,27 @@ function HunterModule:CreateOrbs(frame, layoutConfig)
     local cfg        = self.config
     local orbSize    = cfg.orbSize
     local fgSize     = orbSize * cfg.foregroundScale
+    local layout     = layoutConfig.layout or "arc"
     local arcRadius  = layoutConfig.arcRadius
     local arcSpan    = layoutConfig.arcSpan
     local startAngle = 90 + (arcSpan / 2)
-    local angleStep  = arcSpan / (TIP_MAX_STACKS - 1)
+    local arcStep    = arcSpan / (TIP_MAX_STACKS - 1)
+    local horizStep  = cfg.orbSize + 4
 
     -- Atlas check hoisted: result is identical for every orb
     local atlasName = cfg.foregroundAtlas
     local useAtlas  = C_Texture.GetAtlasInfo(atlasName) ~= nil
 
     for i = 1, TIP_MAX_STACKS do
-        local radian = math.rad(startAngle - (i - 1) * angleStep)
-        local x = arcRadius * math.cos(radian)
-        local y = arcRadius * math.sin(radian)
+        local x, y
+        if layout == "horizontal" then
+            x = -(horizStep * (TIP_MAX_STACKS - 1) / 2) + (i - 1) * horizStep
+            y = arcRadius
+        else
+            local radian = math.rad(startAngle - (i - 1) * arcStep)
+            x = arcRadius * math.cos(radian)
+            y = arcRadius * math.sin(radian)
+        end
 
         local orbFrame = CreateFrame("Frame", nil, frame)
         orbFrame:SetSize(orbSize, orbSize)
@@ -165,21 +172,20 @@ function HunterModule:UpdatePower(orbs)
     end
 
     local currentStacks = tipStacks
+    local startIndex, endIndex = MoePower:GetVisibleRange(currentStacks, n)
 
-    -- Light up orbs from center outward (fill order: 2, 1, 3)
     for i = 1, n do
-        local orb = orbs[FILL_ORDER[i]]
-        if i <= currentStacks then
-            if not orb.active then
-                orb.fadeOut:Stop()
-                orb.fadeIn:Play()
-                orb.active = true
+        if i >= startIndex and i <= endIndex then
+            if not orbs[i].active then
+                orbs[i].fadeOut:Stop()
+                orbs[i].fadeIn:Play()
+                orbs[i].active = true
             end
         else
-            if orb.active then
-                orb.fadeIn:Stop()
-                orb.fadeOut:Play()
-                orb.active = false
+            if orbs[i].active then
+                orbs[i].fadeIn:Stop()
+                orbs[i].fadeOut:Play()
+                orbs[i].active = false
             end
         end
     end

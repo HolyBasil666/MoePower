@@ -26,17 +26,26 @@ function PaladinModule:CreateOrbs(frame, layoutConfig)
     local holyPower = {}
     local maxPower = 5  -- Paladin holy power is always 5
 
-    local cfg = self.config
-    local arcRadius = layoutConfig.arcRadius
-    local arcSpan = layoutConfig.arcSpan
-    local startAngle = 90 + (arcSpan / 2)  -- Start from top-left
+    local cfg        = self.config
+    local layout     = layoutConfig.layout or "arc"
+    local arcRadius  = layoutConfig.arcRadius
+    local arcSpan    = layoutConfig.arcSpan
+    local startAngle = 90 + (arcSpan / 2)
+    local arcStep    = maxPower > 1 and arcSpan / (maxPower - 1) or 0
+    local horizStep  = cfg.orbSize + 4
 
     for i = 1, maxPower do
-        -- Calculate position in arc
-        local angle = startAngle - ((i - 1) * (arcSpan / (maxPower - 1)))
-        local radian = math.rad(angle)
-        local x = arcRadius * math.cos(radian)
-        local y = arcRadius * math.sin(radian)
+        -- Calculate orb position
+        local x, y
+        if layout == "horizontal" then
+            x = -(horizStep * (maxPower - 1) / 2) + (i - 1) * horizStep
+            y = arcRadius
+        else
+            local angle = startAngle - (i - 1) * arcStep
+            local radian = math.rad(angle)
+            x = arcRadius * math.cos(radian)
+            y = arcRadius * math.sin(radian)
+        end
 
         -- Create holy power container frame
         local powerFrame = CreateFrame("Frame", nil, frame)
@@ -87,8 +96,7 @@ function PaladinModule:CreateOrbs(frame, layoutConfig)
 
     -- Initialize visibility based on current power
     local currentPower = UnitPower("player", self.powerType)
-    local startIndex = math.floor((maxPower - currentPower) / 2) + 1
-    local endIndex = startIndex + currentPower - 1
+    local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, maxPower)
 
     -- Determine texture variant based on power level
     local textureVariant = (currentPower <= 2) and "active" or "ready"
@@ -119,9 +127,8 @@ function PaladinModule:UpdatePower(orbs)
     local currentPower = UnitPower("player", self.powerType)
     local maxPower = #orbs
 
-    -- Calculate centered range of holy power to show
-    local startIndex = math.floor((maxPower - currentPower) / 2) + 1
-    local endIndex = startIndex + currentPower - 1
+    -- Calculate visible range of holy power to show
+    local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, maxPower)
 
     -- Determine texture variant based on power level
     local textureVariant = (currentPower <= 2) and "active" or "ready"
@@ -140,7 +147,7 @@ function PaladinModule:UpdatePower(orbs)
             if variantChanged or not wasActive then
                 local runeAtlas = "uf-holypower-rune" .. runeMap[i] .. "-" .. textureVariant
                 pcall(orbs[i].foreground.SetAtlas, orbs[i].foreground, runeAtlas)
-                orbs[i].foreground:SetAlpha(textureVariant == "active" and ACTIVE_VARIANT_ALPHA or 1.0)
+                orbs[i].foreground:SetAlpha(textureVariant == "active" and ACTIVE_VARIANT_ALPHA or MoePower.ACTIVE_ALPHA)
             end
         else
             if orbs[i].active then

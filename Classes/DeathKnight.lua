@@ -71,10 +71,12 @@ function DeathKnightModule:CreateOrbs(frame, layoutConfig)
     local orbSize    = cfg.orbSize
     local bgSize     = orbSize * cfg.backgroundScale
     local fgSize     = orbSize * cfg.foregroundScale
+    local layout     = layoutConfig.layout or "arc"
     local arcRadius  = layoutConfig.arcRadius
     local arcSpan    = layoutConfig.arcSpan
     local startAngle = 90 + (arcSpan / 2)
-    local angleStep  = arcSpan / (DK_MAX_RUNES - 1)
+    local arcStep    = arcSpan / (DK_MAX_RUNES - 1)
+    local horizStep  = cfg.orbSize + 4
 
     -- Resolve per-spec values (hoisted: same for all 6 orbs)
     local spec       = GetSpecialization() or 1
@@ -88,13 +90,18 @@ function DeathKnightModule:CreateOrbs(frame, layoutConfig)
     local useBgAtlas = bgAtlas and C_Texture.GetAtlasInfo(bgAtlas) ~= nil
     -- Hoist initial power query: same value for every orb
     local currentPower = GetReadyRuneCount()
-    local startIndex   = math.floor((DK_MAX_RUNES - currentPower) / 2) + 1
-    local endIndex     = startIndex + currentPower - 1
+    local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, DK_MAX_RUNES)
 
     for i = 1, DK_MAX_RUNES do
-        local radian = math.rad(startAngle - (i - 1) * angleStep)
-        local x = arcRadius * math.cos(radian)
-        local y = arcRadius * math.sin(radian)
+        local x, y
+        if layout == "horizontal" then
+            x = -(horizStep * (DK_MAX_RUNES - 1) / 2) + (i - 1) * horizStep
+            y = arcRadius
+        else
+            local radian = math.rad(startAngle - (i - 1) * arcStep)
+            x = arcRadius * math.cos(radian)
+            y = arcRadius * math.sin(radian)
+        end
 
         local orbFrame = CreateFrame("Frame", nil, frame)
         orbFrame:SetSize(orbSize, orbSize)
@@ -146,8 +153,7 @@ end
 function DeathKnightModule:UpdatePower(orbs)
     local n            = #orbs
     local currentPower = GetReadyRuneCount()
-    local startIndex   = math.floor((n - currentPower) / 2) + 1
-    local endIndex     = startIndex + currentPower - 1
+    local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, n)
 
     for i = 1, n do
         if i >= startIndex and i <= endIndex then

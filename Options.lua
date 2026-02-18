@@ -6,8 +6,18 @@ local _, MoePower = ...
 
 -- Default values for every setting
 local DEFAULTS = {
-    scale               = 1.0,   -- Global orb scale multiplier (0.5–2.0)
-    paladinHideWhenFull = false, -- Hide Paladin orbs at max Holy Power out of combat
+    scale               = 1.0,     -- Global orb scale multiplier (0.5–2.0)
+    paladinHideWhenFull = false,   -- Hide Paladin orbs at max Holy Power out of combat
+    layout              = "arc",   -- "arc" or "horizontal"
+    growDirection       = "center", -- "center", "left", or "right"
+}
+
+-- Display names for each class module (used in the Modules section)
+local CLASS_DISPLAY_NAMES = {
+    PALADIN     = "Paladin",
+    EVOKER      = "Evoker",
+    HUNTER      = "Hunter",
+    DEATHKNIGHT = "Death Knight",
 }
 
 -- Populate MoePowerDB.settings with defaults for any missing keys
@@ -18,6 +28,8 @@ local function InitSettings()
             MoePowerDB.settings[k] = v
         end
     end
+    -- moduleEnabled is a sub-table: nil/true = enabled, false = disabled
+    MoePowerDB.settings.moduleEnabled = MoePowerDB.settings.moduleEnabled or {}
     MoePower.settings = MoePowerDB.settings
 end
 
@@ -31,6 +43,7 @@ end
 -- Build the canvas settings panel
 local function BuildOptionsPanel()
     local panel = CreateFrame("Frame")
+    local moduleCheckboxes = {}  -- [className] = checkButton, for OnShow sync
 
     -- ── Title ─────────────────────────────────────────────────────────────────
     local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -102,9 +115,98 @@ local function BuildOptionsPanel()
         end
     end)
 
+    -- ── Layout section ────────────────────────────────────────────────────────
+    local layoutHeader = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    layoutHeader:SetPoint("TOPLEFT", sliderMinLabel, "BOTTOMLEFT", 0, -24)
+    layoutHeader:SetText("Layout")
+    layoutHeader:SetTextColor(0.6, 0.6, 0.6)
+
+    local dividerL = panel:CreateTexture(nil, "ARTWORK")
+    dividerL:SetColorTexture(0.4, 0.4, 0.4, 0.6)
+    dividerL:SetSize(530, 1)
+    dividerL:SetPoint("TOPLEFT", layoutHeader, "BOTTOMLEFT", 0, -4)
+
+    local arcRadio = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+    arcRadio:SetPoint("TOPLEFT", dividerL, "BOTTOMLEFT", -2, -6)
+
+    local arcRadioLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    arcRadioLabel:SetPoint("LEFT", arcRadio, "RIGHT", 4, 0)
+    arcRadioLabel:SetText("Arc  (default)")
+
+    local horizRadio = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+    horizRadio:SetPoint("LEFT", arcRadioLabel, "RIGHT", 24, 0)
+
+    local horizRadioLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    horizRadioLabel:SetPoint("LEFT", horizRadio, "RIGHT", 4, 0)
+    horizRadioLabel:SetText("Horizontal line")
+
+    arcRadio:SetScript("OnClick", function(self)
+        self:SetChecked(true)
+        horizRadio:SetChecked(false)
+        if MoePower.settings then
+            MoePower.settings.layout = "arc"
+            if MoePower.RebuildOrbs then MoePower:RebuildOrbs() end
+        end
+    end)
+
+    horizRadio:SetScript("OnClick", function(self)
+        self:SetChecked(true)
+        arcRadio:SetChecked(false)
+        if MoePower.settings then
+            MoePower.settings.layout = "horizontal"
+            if MoePower.RebuildOrbs then MoePower:RebuildOrbs() end
+        end
+    end)
+
+    -- ── Grow Direction section ────────────────────────────────────────────────
+    local growHeader = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    growHeader:SetPoint("TOPLEFT", arcRadio, "BOTTOMLEFT", 2, -24)
+    growHeader:SetText("Orb Fill Direction")
+    growHeader:SetTextColor(0.6, 0.6, 0.6)
+
+    local dividerG = panel:CreateTexture(nil, "ARTWORK")
+    dividerG:SetColorTexture(0.4, 0.4, 0.4, 0.6)
+    dividerG:SetSize(530, 1)
+    dividerG:SetPoint("TOPLEFT", growHeader, "BOTTOMLEFT", 0, -4)
+
+    local centerRadio = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+    centerRadio:SetPoint("TOPLEFT", dividerG, "BOTTOMLEFT", -2, -6)
+
+    local centerRadioLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    centerRadioLabel:SetPoint("LEFT", centerRadio, "RIGHT", 4, 0)
+    centerRadioLabel:SetText("Center outward  (default)")
+
+    local leftRadio = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+    leftRadio:SetPoint("LEFT", centerRadioLabel, "RIGHT", 24, 0)
+
+    local leftRadioLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    leftRadioLabel:SetPoint("LEFT", leftRadio, "RIGHT", 4, 0)
+    leftRadioLabel:SetText("Left > Right")
+
+    local rightRadio = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+    rightRadio:SetPoint("LEFT", leftRadioLabel, "RIGHT", 24, 0)
+
+    local rightRadioLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    rightRadioLabel:SetPoint("LEFT", rightRadio, "RIGHT", 4, 0)
+    rightRadioLabel:SetText("Right > Left")
+
+    local function SetGrowDirection(dir)
+        centerRadio:SetChecked(dir == "center")
+        leftRadio:SetChecked(dir == "left")
+        rightRadio:SetChecked(dir == "right")
+        if MoePower.settings then
+            MoePower.settings.growDirection = dir
+            if MoePower.ApplyGrowDirection then MoePower:ApplyGrowDirection() end
+        end
+    end
+
+    centerRadio:SetScript("OnClick", function() SetGrowDirection("center") end)
+    leftRadio:SetScript("OnClick",   function() SetGrowDirection("left")   end)
+    rightRadio:SetScript("OnClick",  function() SetGrowDirection("right")  end)
+
     -- ── Visibility section ────────────────────────────────────────────────────
     local visHeader = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    visHeader:SetPoint("TOPLEFT", sliderMinLabel, "BOTTOMLEFT", 0, -24)
+    visHeader:SetPoint("TOPLEFT", centerRadio, "BOTTOMLEFT", 2, -24)
     visHeader:SetText("Visibility")
     visHeader:SetTextColor(0.6, 0.6, 0.6)
 
@@ -127,11 +229,65 @@ local function BuildOptionsPanel()
         end
     end)
 
+    -- ── Modules section ───────────────────────────────────────────────────────
+    local modHeader = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    modHeader:SetPoint("TOPLEFT", paladinCheck, "BOTTOMLEFT", 2, -24)
+    modHeader:SetText("Modules")
+    modHeader:SetTextColor(0.6, 0.6, 0.6)
+
+    local divider3 = panel:CreateTexture(nil, "ARTWORK")
+    divider3:SetColorTexture(0.4, 0.4, 0.4, 0.6)
+    divider3:SetSize(530, 1)
+    divider3:SetPoint("TOPLEFT", modHeader, "BOTTOMLEFT", 0, -4)
+
+    -- One checkbox per registered class module, sorted alphabetically
+    local sortedClasses = {}
+    for className in pairs(MoePower.classModules) do
+        table.insert(sortedClasses, className)
+    end
+    table.sort(sortedClasses, function(a, b)
+        return (CLASS_DISPLAY_NAMES[a] or a) < (CLASS_DISPLAY_NAMES[b] or b)
+    end)
+
+    local prevAnchor = divider3
+    for _, className in ipairs(sortedClasses) do
+        local cb = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+        cb:SetPoint("TOPLEFT", prevAnchor, "BOTTOMLEFT", 0, -8)
+
+        local lbl = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        lbl:SetPoint("LEFT", cb, "RIGHT", 4, 0)
+        lbl:SetText("Enable " .. (CLASS_DISPLAY_NAMES[className] or className))
+
+        cb:SetScript("OnClick", function(self)
+            if not MoePower.settings then return end
+            local isEnabled = not not self:GetChecked()
+            MoePower.settings.moduleEnabled[className] = isEnabled
+            MoePower:ApplyModuleEnabled(className, isEnabled)
+        end)
+
+        moduleCheckboxes[className] = cb
+        prevAnchor = cb
+    end
+
     -- ── OnShow: sync widgets from saved settings ──────────────────────────────
     panel:SetScript("OnShow", function()
         if not MoePower.settings then return end
         scaleSlider:SetValue(MoePower.settings.scale)
         paladinCheck:SetChecked(MoePower.settings.paladinHideWhenFull)
+        -- Sync layout radio buttons
+        local isArc = (MoePower.settings.layout or "arc") == "arc"
+        arcRadio:SetChecked(isArc)
+        horizRadio:SetChecked(not isArc)
+        -- Sync grow direction radio buttons
+        local dir = MoePower.settings.growDirection or "center"
+        centerRadio:SetChecked(dir == "center")
+        leftRadio:SetChecked(dir == "left")
+        rightRadio:SetChecked(dir == "right")
+        -- Sync module checkboxes: enabled unless explicitly set to false
+        local moduleEnabled = MoePower.settings.moduleEnabled
+        for className, cb in pairs(moduleCheckboxes) do
+            cb:SetChecked(moduleEnabled[className] ~= false)
+        end
     end)
 
     return panel

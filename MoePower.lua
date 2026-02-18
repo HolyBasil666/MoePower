@@ -24,11 +24,13 @@ local ARC_RADIUS      = 140   -- Distance from center
 local BASE_ORB_SPACING = 12.5  -- Degrees between orbs
 
 -- State
-local inEditMode = false
+local inEditMode         = false
+local cachedGrowDirection = "center"  -- Cached to avoid settings table read on every UpdatePower
 local UpdatePower  -- Forward declaration (referenced by SetupEditMode callbacks)
 
 -- Class module registry
 local classModules = {}
+MoePower.classModules = classModules  -- expose for Options.lua (populated at file load time)
 
 function MoePower:RegisterClassModule(module)
     if module.className then
@@ -236,7 +238,8 @@ local function BuildOrbs()
     if not activeModule or not activeModule.CreateOrbs then return end
     local maxPower = GetModuleMaxPower(activeModule)
     local arcSpan  = BASE_ORB_SPACING * (maxPower - 1)
-    powerOrbs = activeModule:CreateOrbs(frame, { arcRadius = ARC_RADIUS, arcSpan = arcSpan })
+    local layout   = MoePower.settings and MoePower.settings.layout or "arc"
+    powerOrbs = activeModule:CreateOrbs(frame, { layout = layout, arcRadius = ARC_RADIUS, arcSpan = arcSpan })
 end
 
 -- Recreate orbs when max power changes (e.g. talent change within the same spec)
@@ -246,6 +249,33 @@ local function RecreateOrbs()
     if #powerOrbs == maxPower then return end  -- count unchanged, skip
     ClearOrbs()
     BuildOrbs()
+    UpdatePower()
+end
+
+-- Force a full orb rebuild (called when layout settings change at runtime)
+function MoePower:RebuildOrbs()
+    if not activeModule or not activeModule.CreateOrbs or not frame then return end
+    ClearOrbs()
+    BuildOrbs()
+    UpdatePower()
+end
+
+-- Returns the startIndex and endIndex of orbs that should be visible for the current
+-- grow direction setting. Uses a cached value to avoid a settings table read per tick.
+function MoePower:GetVisibleRange(currentPower, maxPower)
+    if cachedGrowDirection == "left" then
+        return 1, currentPower
+    elseif cachedGrowDirection == "right" then
+        return maxPower - currentPower + 1, maxPower
+    else  -- "center" (default)
+        local s = math.floor((maxPower - currentPower) / 2) + 1
+        return s, s + currentPower - 1
+    end
+end
+
+-- Re-render orbs for the current power without recreating frames (grow direction change)
+function MoePower:ApplyGrowDirection()
+    cachedGrowDirection = MoePower.settings and MoePower.settings.growDirection or "center"
     UpdatePower()
 end
 
@@ -278,6 +308,18 @@ local function Initialize()
         return
     end
 
+    -- Respect per-module enabled setting (Options panel)
+    if MoePower.settings then
+        local moduleEnabled = MoePower.settings.moduleEnabled
+        if moduleEnabled and moduleEnabled[activeModule.className] == false then
+            local cn = activeModule.className
+            print("|cff00ff00MoePower:|r " .. cn:sub(1, 1):upper() .. cn:sub(2):lower() .. " module loaded (disabled in options)")
+            frame:Hide()
+            return
+        end
+    end
+
+    cachedGrowDirection = MoePower.settings and MoePower.settings.growDirection or "center"
     BuildOrbs()
     UpdatePower()
     MoePower:ApplyScale()
@@ -285,6 +327,16 @@ local function Initialize()
 
     local className = activeModule.className
     print("|cff00ff00MoePower:|r " .. className:sub(1, 1):upper() .. className:sub(2):lower() .. " module loaded")
+end
+
+-- Enable or disable the active class module at runtime (called from Options panel)
+function MoePower:ApplyModuleEnabled(className, enabled)
+    if not activeModule or activeModule.className ~= className then return end
+    if enabled then
+        Initialize()  -- safe to call multiple times; re-checks setting, rebuilds orbs, shows frame
+    elseif frame then
+        frame:Hide()
+    end
 end
 
 -- Event handler
@@ -312,13 +364,13 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         C_Timer.After(1, Initialize)
     elseif event == "UNIT_MAXPOWER" then
         if arg1 == "player" and activeModule and activeModule.powerTypeName then
-            if (arg2 or ""):upper() == activeModule.powerTypeName then
+            if arg2 == activeModule.powerTypeName then
                 RecreateOrbs()
             end
         end
     elseif event == "UNIT_POWER_FREQUENT" then
         if arg1 == "player" and activeModule and activeModule.powerTypeName then
-            if (arg2 or ""):upper() == activeModule.powerTypeName then
+            if arg2 == activeModule.powerTypeName then
                 UpdatePower()
             end
         end
