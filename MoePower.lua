@@ -308,14 +308,26 @@ local function Initialize()
         return
     end
 
-    -- Respect per-module enabled setting (Options panel)
+    -- Respect per-spec / per-module enabled setting (Options panel)
     if MoePower.settings then
-        local moduleEnabled = MoePower.settings.moduleEnabled
-        if moduleEnabled and moduleEnabled[activeModule.className] == false then
-            local cn = activeModule.className
-            print("|cff00ff00MoePower:|r " .. cn:sub(1, 1):upper() .. cn:sub(2):lower() .. " module loaded (disabled in options)")
-            frame:Hide()
-            return
+        local cn = activeModule.className
+        if activeModule.specKeys then
+            -- Spec-level check: only block if this specific spec is explicitly disabled
+            local specEnabled = MoePower.settings.specEnabled
+            if specEnabled and specEnabled[cn] then
+                local currentSpecKey = activeModule.specKeys[GetSpecialization()]
+                if currentSpecKey and specEnabled[cn][currentSpecKey] == false then
+                    frame:Hide()
+                    return
+                end
+            end
+        else
+            -- Class-level fallback for modules without specKeys
+            local moduleEnabled = MoePower.settings.moduleEnabled
+            if moduleEnabled and moduleEnabled[cn] == false then
+                frame:Hide()
+                return
+            end
         end
     end
 
@@ -336,6 +348,20 @@ function MoePower:ApplyModuleEnabled(className, enabled)
         Initialize()  -- safe to call multiple times; re-checks setting, rebuilds orbs, shows frame
     elseif frame then
         frame:Hide()
+    end
+end
+
+-- Enable or disable a specific spec at runtime (called from Options panel)
+function MoePower:ApplySpecEnabled(className, specKey, enabled)
+    if not activeModule or activeModule.className ~= className then return end
+    if enabled then
+        Initialize()  -- re-checks spec setting, rebuilds orbs if needed
+    elseif frame then
+        local currentSpecKey = activeModule.specKeys and activeModule.specKeys[GetSpecialization()]
+        if currentSpecKey == specKey then
+            ClearOrbs()
+            frame:Hide()
+        end
     end
 end
 

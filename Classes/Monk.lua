@@ -1,51 +1,97 @@
 -- Monk Class Module for MoePower
--- Windwalker:         tracks Chi via UNIT_POWER_FREQUENT (5–6 orbs, talent-dependent)
--- Brewmaster/Mistweaver: tracks Teachings of the Monastery buff via UNIT_AURA (4 orbs fixed)
+-- Windwalker:  tracks Chi via UNIT_POWER_FREQUENT (5–6 orbs, talent-dependent)
+-- Mistweaver:  tracks Teachings of the Monastery internally via spell cast events;
+--              aura is read ONLY out of combat (TWW 12.0 blocks aura data in combat).
+-- Brewmaster:  no secondary resource tracked; module is inactive.
 
 local _, MoePower = ...
 
 local WINDWALKER_SPEC      = 3      -- GetSpecialization() index for Windwalker
+local MISTWEAVER_SPEC      = 2      -- GetSpecialization() index for Mistweaver
 local TEACHINGS_MAX_STACKS = 4
-local TEACHINGS_SPELL_ID   = 202090 -- Teachings of the Monastery aura (BM + MW)
+local TEACHINGS_SPELL_ID   = 202090 -- Teachings of the Monastery aura (MW; for OOC sync)
+local TIGER_PALM_ID        = 100780 -- Grants 1 Teachings stack
+local BLACKOUT_KICK_ID     = 100784 -- Consumes all Teachings stacks
+
+-- Per-orb foreground offsets (pixels); indices 1–6 cover up to max WW chi.
+-- Tune these to align UF-Chi-Icon within each UF-Chi-BG-Active slot.
+local FG_X_OFFSET = {0, -0.4, -0.3, 0.15, 0.2, -0.9}
+local FG_Y_OFFSET = {2.7, 2.6, 2.4, 2.4, 2.6, 2.7}
 
 local MonkModule = {
     className     = "MONK",
-    powerType     = Enum.PowerType.Chi,   -- GetModuleMaxPower: 5–6 for WW, 0→falls back to maxPower for BM/MW
-    powerTypeName = "CHI",                 -- Routes UNIT_POWER_FREQUENT + UNIT_MAXPOWER (WW only; BM/MW have no chi)
-    tracksAura    = true,                  -- Routes UNIT_AURA → UpdatePower (BM/MW Teachings sync; harmless for WW)
-    maxPower      = TEACHINGS_MAX_STACKS,  -- Fallback for GetModuleMaxPower when UnitPowerMax(Chi) = 0 (BM/MW)
+    specKeys      = { [2] = "MISTWEAVER", [3] = "WINDWALKER" },
+    powerType     = Enum.PowerType.Chi,   -- GetModuleMaxPower: 5–6 for WW, 0→falls back to maxPower for MW/BM
+    powerTypeName = "CHI",                 -- Routes UNIT_POWER_FREQUENT + UNIT_MAXPOWER (WW only)
+    tracksAura    = true,                  -- Routes UNIT_AURA → UpdatePower (MW OOC sync; harmless for WW)
+    maxPower      = TEACHINGS_MAX_STACKS,  -- Fallback for GetModuleMaxPower when UnitPowerMax(Chi) = 0
 
     config = {
-        orbSize         = 22,
-        backgroundScale = 1.2,
-        foregroundScale = 0.9,
+        orbSize         = 25,
+        backgroundScale = 1,
+        foregroundScale = 0.57,
         backgroundAtlas = "UF-Chi-BG-Active",
         foregroundAtlas = "UF-Chi-Icon",
     }
 }
 
 -- Internal state
-local isWindwalker   = false  -- Cached in CreateOrbs; reset on every spec change / Initialize
+local isWindwalker    = false  -- Cached in CreateOrbs; reset on every spec change / Initialize
+local isMistweaver    = false  -- Cached in CreateOrbs; only MW tracks Teachings
+local teachingsStacks = 0      -- Internal counter for MW (not read from aura during combat)
+local seenCastGUID    = {}     -- Deduplication: prevents double-counting multi-hit spells
 -- Event-driven combat flag: avoids the brief window where UnitAffectingCombat()
 -- returns false right after PLAYER_REGEN_DISABLED fires (TWW 12.0 timing issue).
-local moduleInCombat = false
+local moduleInCombat  = false
 
 local combatFrame = CreateFrame("Frame")
 combatFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 combatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 combatFrame:SetScript("OnEvent", function(self, event)
-    moduleInCombat = event == "PLAYER_REGEN_DISABLED"
+    if event == "PLAYER_REGEN_DISABLED" then
+        moduleInCombat = true
+    else  -- PLAYER_REGEN_ENABLED
+        moduleInCombat = false
+        wipe(seenCastGUID)
+    end
 end)
 
--- Read Teachings of the Monastery stack count from aura data
-local function GetTeachingsStacks()
+-- Sync Teachings stack count from aura data.
+-- ONLY call this out of combat; aura fields are blocked in TWW 12.0 during combat.
+local function SyncTeachingsFromAura()
     local auraData = C_UnitAuras.GetPlayerAuraBySpellID(TEACHINGS_SPELL_ID)
-    return auraData and (auraData.applications or 0) or 0
+    teachingsStacks = auraData and (auraData.applications or 0) or 0
+end
+
+-- Called by framework on UNIT_SPELLCAST_SUCCEEDED for the player
+function MonkModule:OnSpellCast(spellID, castGUID)
+    if not isMistweaver then return end
+    -- Deduplicate: ignore if we've already processed this cast
+    if castGUID then
+        if seenCastGUID[castGUID] then return end
+        seenCastGUID[castGUID] = true
+    end
+
+    if spellID == TIGER_PALM_ID then
+        teachingsStacks = math.min(teachingsStacks + 1, TEACHINGS_MAX_STACKS)
+    elseif spellID == BLACKOUT_KICK_ID then
+        teachingsStacks = 0
+    end
 end
 
 -- Create orb frames for the current spec
 function MonkModule:CreateOrbs(frame, layoutConfig)
-    isWindwalker = (GetSpecialization() == WINDWALKER_SPEC)
+    local spec = GetSpecialization()
+    isWindwalker = (spec == WINDWALKER_SPEC)
+    isMistweaver = (spec == MISTWEAVER_SPEC)
+
+    -- Brewmaster has no secondary resource to track
+    if not isWindwalker and not isMistweaver then return {} end
+
+    -- Only Mistweaver needs UNIT_AURA routing (OOC aura sync).
+    -- Windwalker is driven by UNIT_POWER_FREQUENT; enabling tracksAura for WW
+    -- would fire UpdatePower on every buff/debuff change unnecessarily.
+    self.tracksAura = isMistweaver
 
     local orbs     = {}
     local cfg      = self.config
@@ -64,10 +110,13 @@ function MonkModule:CreateOrbs(frame, layoutConfig)
     local useBgAtlas = C_Texture.GetAtlasInfo(cfg.backgroundAtlas) ~= nil
     local useFgAtlas = C_Texture.GetAtlasInfo(cfg.foregroundAtlas) ~= nil
 
-    -- Determine initial visibility (CreateOrbs is never called mid-combat)
+    -- Sync initial state (safe: CreateOrbs is never called mid-combat)
+    if isMistweaver then
+        SyncTeachingsFromAura()
+    end
     local currentPower = isWindwalker
         and UnitPower("player", Enum.PowerType.Chi)
-        or  GetTeachingsStacks()
+        or  teachingsStacks
     local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, maxPower)
 
     for i = 1, maxPower do
@@ -100,7 +149,7 @@ function MonkModule:CreateOrbs(frame, layoutConfig)
         local fg = orbFrame:CreateTexture(nil, "ARTWORK")
         local fgSize = cfg.orbSize * cfg.foregroundScale
         fg:SetSize(fgSize, fgSize)
-        fg:SetPoint("CENTER", orbFrame, "CENTER", 0, 0)
+        fg:SetPoint("CENTER", orbFrame, "CENTER", FG_X_OFFSET[i] or 0, FG_Y_OFFSET[i] or 0)
         if useFgAtlas then
             fg:SetAtlas(cfg.foregroundAtlas)
         else
@@ -126,7 +175,7 @@ function MonkModule:CreateOrbs(frame, layoutConfig)
     return orbs
 end
 
--- Update orb display from current power / aura stacks
+-- Update orb display from current power / teachings stack counter
 function MonkModule:UpdatePower(orbs)
     local n = #orbs
     if n == 0 then return end
@@ -135,7 +184,11 @@ function MonkModule:UpdatePower(orbs)
     if isWindwalker then
         currentPower = UnitPower("player", Enum.PowerType.Chi)
     else
-        currentPower = GetTeachingsStacks()
+        -- Out of combat: sync from aura (safe; event-driven flag is never briefly wrong)
+        if not moduleInCombat then
+            SyncTeachingsFromAura()
+        end
+        currentPower = teachingsStacks
     end
 
     local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, n)
@@ -156,8 +209,8 @@ function MonkModule:UpdatePower(orbs)
         end
     end
 
-    -- Hide 1 s after leaving combat with 0 chi / 0 teachings stacks
-    if not moduleInCombat and currentPower == 0 then
+    -- Hide 1 s after leaving combat (chi doesn't auto-regen, so hide regardless of current amount)
+    if not moduleInCombat then
         MoePower:ScheduleHideOrbs(orbs, 1)
     else
         MoePower:CancelHideOrbs()

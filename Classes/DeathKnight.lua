@@ -11,6 +11,7 @@ local DK_MAX_RUNES = 6
 
 local DeathKnightModule = {
     className = "DEATHKNIGHT",
+    specKeys  = { [1] = "BLOOD", [2] = "FROST", [3] = "UNHOLY" },
     powerType = Enum.PowerType.Runes,  -- Used by GetModuleMaxPower to size the orb array
     -- No powerTypeName: UNIT_POWER_FREQUENT is unreliable for runes; RUNE_POWER_UPDATE is used instead
 
