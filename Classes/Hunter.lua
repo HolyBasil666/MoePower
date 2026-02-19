@@ -29,6 +29,7 @@ local SURVIVAL_SPEC = 3  -- GetSpecialization() index for Survival
 
 local HunterModule = {
     className   = "HUNTER",
+    specKeys    = { [3] = "SURVIVAL" },
     maxPower    = TIP_MAX_STACKS,
     tracksAura  = true,  -- Opt-in: UNIT_AURA → UpdatePower (out-of-combat aura sync)
     -- No powerType / powerTypeName: framework uses maxPower and routes UNIT_SPELLCAST_SUCCEEDED
@@ -99,6 +100,9 @@ end
 -- Create orb frames in arc formation
 function HunterModule:CreateOrbs(frame, layoutConfig)
     isSurvival = GetSpecialization() == SURVIVAL_SPEC
+    -- Only Survival needs UNIT_AURA routing (OOC aura sync).
+    -- Non-Survival specs have no orbs; disabling tracksAura avoids routing UNIT_AURA → UpdatePower unnecessarily.
+    self.tracksAura = isSurvival
     if not isSurvival then return {} end
 
     local orbs = {}

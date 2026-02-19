@@ -4,29 +4,36 @@ local _, MoePower = ...
 
 -- Evoker-specific configuration
 local EvokerModule = {
-    className = "EVOKER",
-    powerType = Enum.PowerType.Essence,
+    className     = "EVOKER",
+    specKeys      = { [1] = "DEVASTATION", [2] = "PRESERVATION", [3] = "AUGMENTATION" },
+    powerType     = Enum.PowerType.Essence,
     powerTypeName = "ESSENCE",
 
-    -- Visual settings
     config = {
-        orbSize = 25,            -- Orb frame size (container)
-        backgroundScale = 1.0,   -- Background texture scale (multiplier of orbSize)
-        foregroundScale = 1.0,   -- Foreground texture scale (multiplier of orbSize)
-        backgroundAtlas = "uf-essence-bg-active",  -- Background texture
-        foregroundAtlas = "uf-essence-icon"        -- Foreground fill texture
+        orbSize         = 25,
+        backgroundScale = 1.0,
+        foregroundScale = 1.0,
+        backgroundAtlas = "uf-essence-bg-active",
+        foregroundAtlas = "uf-essence-icon",
     }
 }
 
--- Create essence display in arc formation
-function EvokerModule:CreateOrbs(frame, layoutConfig)
-    local essence = {}
-    local maxPower = UnitPowerMax("player", self.powerType)
-    if maxPower == 0 then
-        maxPower = 6  -- Default fallback
-    end
+-- Event-driven combat flag (avoids UnitAffectingCombat() in the UpdatePower hot path)
+local moduleInCombat = false
+local combatFrame = CreateFrame("Frame")
+combatFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
+combatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+combatFrame:SetScript("OnEvent", function(self, event)
+    moduleInCombat = event == "PLAYER_REGEN_DISABLED"
+end)
 
-    local cfg        = self.config
+-- Create essence display in arc or horizontal formation
+function EvokerModule:CreateOrbs(frame, layoutConfig)
+    local essence  = {}
+    local cfg      = self.config
+    local maxPower = UnitPowerMax("player", self.powerType)
+    if maxPower == 0 then maxPower = 6 end
+
     local layout     = layoutConfig.layout or "arc"
     local arcRadius  = layoutConfig.arcRadius
     local arcSpan    = layoutConfig.arcSpan
@@ -34,78 +41,63 @@ function EvokerModule:CreateOrbs(frame, layoutConfig)
     local arcStep    = maxPower > 1 and arcSpan / (maxPower - 1) or 0
     local horizStep  = cfg.orbSize + 4
 
+    -- Hoist atlas checks outside loop: same result for every orb
+    local useBgAtlas = C_Texture.GetAtlasInfo(cfg.backgroundAtlas) ~= nil
+    local useFgAtlas = C_Texture.GetAtlasInfo(cfg.foregroundAtlas) ~= nil
+
+    -- Hoist initial visibility query
+    local currentPower         = UnitPower("player", self.powerType)
+    local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, maxPower)
+    local shouldShow           = moduleInCombat or currentPower < maxPower
+
     for i = 1, maxPower do
-        -- Calculate orb position
         local x, y
         if layout == "horizontal" then
             x = -(horizStep * (maxPower - 1) / 2) + (i - 1) * horizStep
             y = arcRadius
         else
-            local angle = startAngle - (i - 1) * arcStep
-            local radian = math.rad(angle)
+            local radian = math.rad(startAngle - (i - 1) * arcStep)
             x = arcRadius * math.cos(radian)
             y = arcRadius * math.sin(radian)
         end
 
-        -- Create essence container frame
         local essenceFrame = CreateFrame("Frame", nil, frame)
         essenceFrame:SetSize(cfg.orbSize, cfg.orbSize)
         essenceFrame:SetPoint("CENTER", frame, "CENTER", x, y)
 
-        -- Background essence texture (always visible)
         local background = essenceFrame:CreateTexture(nil, "BACKGROUND")
-        local bgSize = cfg.orbSize * cfg.backgroundScale
-        background:SetSize(bgSize, bgSize)
+        background:SetSize(cfg.orbSize * cfg.backgroundScale, cfg.orbSize * cfg.backgroundScale)
         background:SetPoint("CENTER", essenceFrame, "CENTER", 0, 0)
-        local bgSuccess = pcall(background.SetAtlas, background, cfg.backgroundAtlas)
-        if not bgSuccess then
-            background:SetColorTexture(0.2, 0.2, 0.2, 0.75)
+        if useBgAtlas then
+            background:SetAtlas(cfg.backgroundAtlas)
+        else
+            background:SetColorTexture(1, 1, 1, 1)
         end
 
-        -- Foreground essence fill texture (shows when active)
         local foreground = essenceFrame:CreateTexture(nil, "ARTWORK")
-        local fgSize = cfg.orbSize * cfg.foregroundScale
-        foreground:SetSize(fgSize, fgSize)
+        foreground:SetSize(cfg.orbSize * cfg.foregroundScale, cfg.orbSize * cfg.foregroundScale)
         foreground:SetPoint("CENTER", essenceFrame, "CENTER", 0, 0)
-        local fgSuccess = pcall(foreground.SetAtlas, foreground, cfg.foregroundAtlas)
-        if not fgSuccess then
+        if useFgAtlas then
+            foreground:SetAtlas(cfg.foregroundAtlas)
+        else
             foreground:SetColorTexture(1, 1, 1, 1)
         end
 
-        -- Add fade animations
         local fadeInGroup, fadeOutGroup = MoePower:AddOrbAnimations(essenceFrame)
 
-        -- Store references
+        local active = shouldShow and i >= startIndex and i <= endIndex
+        essenceFrame:SetAlpha(active and MoePower.ACTIVE_ALPHA or 0)
+
         essence[i] = {
-            frame = essenceFrame,
+            frame      = essenceFrame,
             background = background,
             foreground = foreground,
-            fadeIn = fadeInGroup,
-            fadeOut = fadeOutGroup,
-            active = false
+            fadeIn     = fadeInGroup,
+            fadeOut    = fadeOutGroup,
+            active     = active,
         }
 
         essenceFrame:Show()
-    end
-
-    -- Initialize visibility based on current power and combat state
-    local inCombat = UnitAffectingCombat("player")
-    local currentPower = UnitPower("player", self.powerType)
-    local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, maxPower)
-
-    -- Show orbs if in combat OR regenerating essence
-    local shouldShow = inCombat or currentPower < maxPower
-
-    for i = 1, maxPower do
-        if shouldShow and i >= startIndex and i <= endIndex then
-            -- Visible on load
-            essence[i].frame:SetAlpha(MoePower.ACTIVE_ALPHA)
-            essence[i].active = true
-        else
-            -- Hidden on load
-            essence[i].frame:SetAlpha(0)
-            essence[i].active = false
-        end
     end
 
     return essence
@@ -113,12 +105,9 @@ end
 
 -- Update essence display based on current power
 function EvokerModule:UpdatePower(orbs)
-    local inCombat = UnitAffectingCombat("player")
-    local currentPower = UnitPower("player", self.powerType)
-    local maxPower = #orbs
-    local shouldHide = not inCombat and currentPower >= maxPower
-
-    -- Always update orb display first
+    local currentPower     = UnitPower("player", self.powerType)
+    local maxPower         = #orbs
+    local shouldHide       = not moduleInCombat and currentPower >= maxPower
     local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, maxPower)
 
     for i = 1, maxPower do
@@ -137,7 +126,6 @@ function EvokerModule:UpdatePower(orbs)
         end
     end
 
-    -- Schedule delayed hide or cancel pending hide
     if shouldHide then
         MoePower:ScheduleHideOrbs(orbs, 1)
     else
