@@ -14,3 +14,4 @@ Classes\Evoker.lua
 Classes\Paladin.lua
 Classes\Hunter.lua
 Classes\DeathKnight.lua
+Classes\Monk.lua

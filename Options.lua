@@ -14,10 +14,11 @@ local DEFAULTS = {
 
 -- Display names for each class module (used in the Modules section)
 local CLASS_DISPLAY_NAMES = {
-    PALADIN     = "Paladin",
+    DEATHKNIGHT = "Death Knight",
     EVOKER      = "Evoker",
     HUNTER      = "Hunter",
-    DEATHKNIGHT = "Death Knight",
+    MONK        = "Monk",
+    PALADIN     = "Paladin",
 }
 
 -- Populate MoePowerDB.settings with defaults for any missing keys
