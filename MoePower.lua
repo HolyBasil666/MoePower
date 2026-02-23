@@ -368,6 +368,7 @@ end
 -- Event handler
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
+eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("UNIT_POWER_FREQUENT")
 eventFrame:RegisterEvent("UNIT_MAXPOWER")
 eventFrame:RegisterEvent("PLAYER_TALENT_UPDATE")
@@ -382,6 +383,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
     if event == "PLAYER_LOGIN" then
         -- Delay to ensure player stats are fully loaded
         C_Timer.After(1, Initialize)
+    elseif event == "PLAYER_ENTERING_WORLD" then
+        -- Zone change / instance transition: refresh display with current power state
+        UpdatePower()
     elseif event == "PLAYER_TALENT_UPDATE" or event == "TRAIT_CONFIG_UPDATED" then
         -- Delay to ensure updated stats are available
         C_Timer.After(1, RecreateOrbs)
