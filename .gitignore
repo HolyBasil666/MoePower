@@ -31,3 +31,7 @@ releases/
 # Reference materials from other addons (WeakAuras, SharedMedia, etc.)
 MoePower Reference/
 reference/
+.claude/
+
+# Local development notes (not for distribution)
+CLAUDE.md
