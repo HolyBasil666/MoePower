@@ -24,7 +24,8 @@ local ARC_RADIUS      = 140   -- Distance from center
 local BASE_ORB_SPACING = 12.5  -- Degrees between orbs
 
 -- State
-local inEditMode         = false
+local inEditMode          = false
+local playerMounted       = false
 local cachedGrowDirection = "center"  -- Cached to avoid settings table read on every UpdatePower
 local UpdatePower  -- Forward declaration (referenced by SetupEditMode callbacks)
 
@@ -207,6 +208,7 @@ end
 -- Update power display (called by event handler)
 UpdatePower = function()
     if inEditMode then return end
+    if playerMounted then return end
     if activeModule and activeModule.UpdatePower then
         activeModule:UpdatePower(powerOrbs)
     end
@@ -283,6 +285,7 @@ end
 -- On first call: creates the main frame and Edit Mode hooks.
 -- On subsequent calls (e.g. spec change): reuses the existing frame.
 local function Initialize()
+    playerMounted = IsMounted()
     activeModule = GetClassModule()
 
     -- First run: create the persistent main frame
@@ -379,6 +382,7 @@ eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 eventFrame:RegisterEvent("UNIT_AURA")
 eventFrame:RegisterEvent("RUNE_POWER_UPDATE")
+eventFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
 eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
     if event == "PLAYER_LOGIN" then
         -- Delay to ensure player stats are fully loaded
@@ -420,5 +424,18 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         UpdatePower()
     elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
         UpdatePower()
+    elseif event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
+        local wasMounted = playerMounted
+        playerMounted = IsMounted()
+        if playerMounted and not wasMounted then
+            -- Just mounted: fade out all orbs immediately
+            if powerOrbs and #powerOrbs > 0 then
+                MoePower:ScheduleHideOrbs(powerOrbs, 0)
+            end
+        elseif not playerMounted and wasMounted then
+            -- Just unmounted: cancel any pending hide, restore normal display
+            MoePower:CancelHideOrbs()
+            UpdatePower()
+        end
     end
 end)
