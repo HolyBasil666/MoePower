@@ -7,7 +7,7 @@ local _, MoePower = ...
 -- Default values for every setting
 local DEFAULTS = {
     scale               = 1.0,     -- Global orb scale multiplier (0.5–2.0)
-    paladinHideWhenFull = false,   -- Hide Paladin orbs at max Holy Power out of combat
+    paladinHideWhenFull = false,   -- Hide Paladin orbs out of combat
     layout              = "arc",   -- "arc" or "horizontal"
     growDirection       = "center", -- "center", "left", or "right"
 }
@@ -270,7 +270,7 @@ local function BuildOptionsPanel()
 
     local paladinCheckLabel = C:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     paladinCheckLabel:SetPoint("LEFT", paladinCheck, "RIGHT", 4, 0)
-    paladinCheckLabel:SetText("Paladin: Hide orbs at maximum Holy Power out of combat")
+    paladinCheckLabel:SetText("Paladin: Hide orbs out of combat")
 
     paladinCheck:SetScript("OnClick", function(self)
         if MoePower.settings then

@@ -149,9 +149,10 @@ function PaladinModule:UpdatePower(orbs)
         end
     end
 
-    -- Respect paladinHideWhenFull setting (default: always show)
+    -- Respect paladinHideWhenFull setting: hide all orbs out of combat (default: always show)
+    -- Holy Power does not regenerate on its own, so hiding OOC regardless of current power.
     if MoePower.settings and MoePower.settings.paladinHideWhenFull then
-        if not moduleInCombat and currentPower >= maxPower then
+        if not moduleInCombat then
             MoePower:ScheduleHideOrbs(orbs, 1)
         else
             MoePower:CancelHideOrbs()
