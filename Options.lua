@@ -10,6 +10,7 @@ local DEFAULTS = {
     paladinHideWhenFull = false,   -- Hide Paladin orbs out of combat
     layout              = "arc",   -- "arc" or "horizontal"
     growDirection       = "center", -- "center", "left", or "right"
+    debug               = false,   -- Print orb show/hide/update info to chat
 }
 
 -- Display names for each class module (used in the Modules section)
@@ -360,6 +361,30 @@ local function BuildOptionsPanel()
         end
     end
 
+    -- ── Developer section ─────────────────────────────────────────────────────
+    local devHeader = C:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    devHeader:SetPoint("TOPLEFT", divider3, "BOTTOMLEFT", 0, curY - 24)
+    devHeader:SetText("Developer")
+    devHeader:SetTextColor(0.6, 0.6, 0.6)
+
+    local dividerDev = C:CreateTexture(nil, "ARTWORK")
+    dividerDev:SetColorTexture(0.4, 0.4, 0.4, 0.6)
+    dividerDev:SetSize(530, 1)
+    dividerDev:SetPoint("TOPLEFT", devHeader, "BOTTOMLEFT", 0, -4)
+
+    local debugCheck = CreateFrame("CheckButton", nil, C, "UICheckButtonTemplate")
+    debugCheck:SetPoint("TOPLEFT", dividerDev, "BOTTOMLEFT", -2, -8)
+
+    local debugCheckLabel = C:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    debugCheckLabel:SetPoint("LEFT", debugCheck, "RIGHT", 4, 0)
+    debugCheckLabel:SetText("Debug: print orb show/hide/update to chat")
+
+    debugCheck:SetScript("OnClick", function(self)
+        if MoePower.settings then
+            MoePower.settings.debug = not not self:GetChecked()
+        end
+    end)
+
     -- ── OnShow: sync widgets from saved settings ──────────────────────────────
     panel:SetScript("OnShow", function()
         if not MoePower.settings then return end
@@ -387,6 +412,8 @@ local function BuildOptionsPanel()
         for className, cb in pairs(classCheckboxes) do
             cb:SetChecked(moduleEnabled[className] ~= false)
         end
+        -- Sync developer options
+        debugCheck:SetChecked(MoePower.settings.debug == true)
     end)
 
     return panel

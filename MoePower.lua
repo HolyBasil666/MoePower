@@ -28,6 +28,7 @@ local inEditMode          = false
 local playerMounted       = false
 local cachedGrowDirection = "center"  -- Cached to avoid settings table read on every UpdatePower
 local UpdatePower  -- Forward declaration (referenced by SetupEditMode callbacks)
+local dbgCtx = {}  -- Debug context: reset each UpdatePower call, printed once at end
 
 -- Class module registry
 local classModules = {}
@@ -135,7 +136,7 @@ local function SetupEditMode()
         hooksecurefunc(EditModeManagerFrame, "ExitEditMode", function()
             inEditMode = false
             frame.dragFrame:Hide()
-            UpdatePower()
+            UpdatePower("ExitEditMode")
         end)
 
         if EditModeManagerFrame:IsEditModeActive() then
@@ -153,6 +154,13 @@ end
 
 -- Expose active alpha for class modules
 MoePower.ACTIVE_ALPHA = ACTIVE_ALPHA
+
+-- Debug logging (active only when settings.debug == true)
+function MoePower:DebugPrint(...)
+    if MoePower.settings and MoePower.settings.debug then
+        print("|cff00ccff[MoePower Debug]|r", ...)
+    end
+end
 
 -- Create fade animations for an orb frame
 function MoePower:AddOrbAnimations(orbFrame)
@@ -184,15 +192,24 @@ function MoePower:ScheduleHideOrbs(orbs, delay)
         hideActive = true
         hideVersion = hideVersion + 1
         local thisVersion = hideVersion
+        if MoePower.settings and MoePower.settings.debug then
+            dbgCtx.hideInfo = "→hide:" .. (delay or 1) .. "s"
+        end
         C_Timer.After(delay or 1, function()
             if hideVersion == thisVersion then
                 hideActive = false
+                local isDebug = MoePower.settings and MoePower.settings.debug
+                local debugHidden = isDebug and {} or nil
                 for i = 1, #orbs do
                     if orbs[i].active then
                         orbs[i].fadeIn:Stop()
                         orbs[i].fadeOut:Play()
                         orbs[i].active = false
+                        if isDebug then table.insert(debugHidden, i) end
                     end
+                end
+                if isDebug and debugHidden[1] then
+                    print("|cff00ccff[MoePower Debug]|r", "HideOrbs | hidden=[" .. table.concat(debugHidden, ",") .. "]")
                 end
             end
         end)
@@ -207,14 +224,26 @@ function MoePower:CancelHideOrbs()
 end
 
 -- Update power display (called by event handler)
-UpdatePower = function()
+UpdatePower = function(trigger)
     if inEditMode then return end
     if playerMounted then return end
     if not activeModule then return end
+    local isDebug = MoePower.settings and MoePower.settings.debug
+    if isDebug then
+        dbgCtx = { trigger = trigger or "?" }
+    end
     if activeModule.UpdatePower then
         activeModule:UpdatePower(powerOrbs)
     else
         MoePower:StandardUpdatePower(powerOrbs, activeModule)
+    end
+    if isDebug then
+        local parts = { dbgCtx.trigger }
+        if dbgCtx.power then table.insert(parts, dbgCtx.power .. "/" .. dbgCtx.max) end
+        if dbgCtx.shown  and dbgCtx.shown[1]  then table.insert(parts, "shown=["  .. table.concat(dbgCtx.shown,  ",") .. "]") end
+        if dbgCtx.hidden and dbgCtx.hidden[1] then table.insert(parts, "hidden=[" .. table.concat(dbgCtx.hidden, ",") .. "]") end
+        if dbgCtx.hideInfo then table.insert(parts, dbgCtx.hideInfo) end
+        print("|cff00ccff[MoePower Debug]|r", table.concat(parts, " | "))
     end
 end
 
@@ -260,7 +289,7 @@ local function RecreateOrbs()
     if #powerOrbs == maxPower then return end  -- count unchanged, skip
     ClearOrbs()
     BuildOrbs()
-    UpdatePower()
+    UpdatePower("RecreateOrbs")
 end
 
 -- Force a full orb rebuild (called when layout settings change at runtime)
@@ -268,7 +297,7 @@ function MoePower:RebuildOrbs()
     if not activeModule or not frame then return end
     ClearOrbs()
     BuildOrbs()
-    UpdatePower()
+    UpdatePower("RebuildOrbs")
 end
 
 -- Returns the startIndex and endIndex of orbs that should be visible for the current
@@ -301,20 +330,29 @@ end
 
 -- Fade orbs in/out: show orbs within [startIndex, endIndex], hide the rest.
 function MoePower:UpdateOrbVisibility(orbs, startIndex, endIndex)
+    local isDebug = MoePower.settings and MoePower.settings.debug
+    local debugShown, debugHidden
+    if isDebug then debugShown, debugHidden = {}, {} end
     for i = 1, #orbs do
         if i >= startIndex and i <= endIndex then
             if not orbs[i].active then
                 orbs[i].fadeOut:Stop()
                 orbs[i].fadeIn:Play()
                 orbs[i].active = true
+                if isDebug then table.insert(debugShown, i) end
             end
         else
             if orbs[i].active then
                 orbs[i].fadeIn:Stop()
                 orbs[i].fadeOut:Play()
                 orbs[i].active = false
+                if isDebug then table.insert(debugHidden, i) end
             end
         end
+    end
+    if isDebug then
+        dbgCtx.shown  = debugShown
+        dbgCtx.hidden = debugHidden
     end
 end
 
@@ -421,6 +459,10 @@ function MoePower:StandardUpdatePower(orbs, module)
     end
 
     local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, n)
+    if MoePower.settings and MoePower.settings.debug then
+        dbgCtx.power = currentPower
+        dbgCtx.max   = n
+    end
     MoePower:UpdateOrbVisibility(orbs, startIndex, endIndex)
 
     local shouldHide = module.ShouldHideOOC and module:ShouldHideOOC(currentPower, n)
@@ -438,7 +480,7 @@ end
 -- Re-render orbs for the current power without recreating frames (grow direction change)
 function MoePower:ApplyGrowDirection()
     cachedGrowDirection = MoePower.settings and MoePower.settings.growDirection or "center"
-    UpdatePower()
+    UpdatePower("ApplyGrowDirection")
 end
 
 -- Initialize (or reinitialize) the addon — safe to call multiple times.
@@ -496,7 +538,7 @@ local function Initialize()
 
     cachedGrowDirection = MoePower.settings and MoePower.settings.growDirection or "center"
     BuildOrbs()
-    UpdatePower()
+    UpdatePower("Initialize")
     MoePower:ApplyScale()
     frame:Show()
 
@@ -549,7 +591,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         C_Timer.After(1, Initialize)
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- Zone change / instance transition: refresh display with current power state
-        UpdatePower()
+        UpdatePower(event)
     elseif event == "PLAYER_TALENT_UPDATE" or event == "TRAIT_CONFIG_UPDATED" then
         -- Delay to ensure updated stats are available
         C_Timer.After(1, RecreateOrbs)
@@ -565,26 +607,26 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
     elseif event == "UNIT_POWER_FREQUENT" then
         if arg1 == "player" and activeModule and activeModule.powerTypeName then
             if arg2 == activeModule.powerTypeName then
-                UpdatePower()
+                UpdatePower(event)
             end
         end
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
         -- Route spell casts to modules that track via spells (arg2=castGUID, arg3=spellID)
         if arg1 == "player" and activeModule and activeModule.OnSpellCast then
             activeModule:OnSpellCast(arg3, arg2)
-            UpdatePower()
+            UpdatePower(event)
         end
     elseif event == "UNIT_AURA" then
         -- Sync aura-tracking modules out of combat when buffs change (opt-in via tracksAura)
         if arg1 == "player" and activeModule and activeModule.tracksAura then
-            UpdatePower()
+            UpdatePower(event)
         end
     elseif event == "RUNE_POWER_UPDATE" then
         -- Fires on every individual rune spend/recharge (DK only)
-        UpdatePower()
+        UpdatePower(event)
     elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
         MoePower.inCombat = event == "PLAYER_REGEN_DISABLED"
-        UpdatePower()
+        UpdatePower(event)
     elseif event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
         local wasMounted = playerMounted
         playerMounted = IsMounted()
@@ -596,7 +638,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         elseif not playerMounted and wasMounted then
             -- Just unmounted: cancel any pending hide, restore normal display
             MoePower:CancelHideOrbs()
-            UpdatePower()
+            UpdatePower(event)
         end
     end
 end)
