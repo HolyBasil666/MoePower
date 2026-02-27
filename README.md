@@ -8,7 +8,7 @@ Displays your class resource (Holy Power, Essence, combo points, etc.) as textur
 
 ![Version: 1.0](https://img.shields.io/badge/Version-1.0-blue)
 
-<a href="https://www.buymeacoffee.com/holybasil666"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=holybasil666&button_colour=FFDD00&font_colour=000000&font_family=Lato&outline_colour=000000&coffee_colour=ffffff" /></a>
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/holybasil666)
 
 ---
 
