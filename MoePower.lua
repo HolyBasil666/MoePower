@@ -27,6 +27,7 @@ local BASE_ORB_SPACING = 12.5  -- Degrees between orbs
 local inEditMode          = false
 local playerMounted       = false
 local cachedGrowDirection = "center"  -- Cached to avoid settings table read on every UpdatePower
+local cachedDebug         = false     -- Cached to avoid settings table read on every UpdatePower
 local UpdatePower  -- Forward declaration (referenced by SetupEditMode callbacks)
 local dbgCtx = {}  -- Debug context: reset each UpdatePower call, printed once at end
 
@@ -157,7 +158,7 @@ MoePower.ACTIVE_ALPHA = ACTIVE_ALPHA
 
 -- Debug logging (active only when settings.debug == true)
 function MoePower:DebugPrint(...)
-    if MoePower.settings and MoePower.settings.debug then
+    if cachedDebug then
         print("|cff00ccff[MoePower Debug]|r", ...)
     end
 end
@@ -192,13 +193,13 @@ function MoePower:ScheduleHideOrbs(orbs, delay)
         hideActive = true
         hideVersion = hideVersion + 1
         local thisVersion = hideVersion
-        if MoePower.settings and MoePower.settings.debug then
+        if cachedDebug then
             dbgCtx.hideInfo = "→hide:" .. (delay or 1) .. "s"
         end
         C_Timer.After(delay or 1, function()
             if hideVersion == thisVersion then
                 hideActive = false
-                local isDebug = MoePower.settings and MoePower.settings.debug
+                local isDebug = cachedDebug
                 local debugHidden = isDebug and {} or nil
                 for i = 1, #orbs do
                     if orbs[i].active then
@@ -228,7 +229,7 @@ UpdatePower = function(trigger)
     if inEditMode then return end
     if playerMounted then return end
     if not activeModule then return end
-    local isDebug = MoePower.settings and MoePower.settings.debug
+    local isDebug = cachedDebug
     if isDebug then
         dbgCtx = { trigger = trigger or "?" }
     end
@@ -330,7 +331,7 @@ end
 
 -- Fade orbs in/out: show orbs within [startIndex, endIndex], hide the rest.
 function MoePower:UpdateOrbVisibility(orbs, startIndex, endIndex)
-    local isDebug = MoePower.settings and MoePower.settings.debug
+    local isDebug = cachedDebug
     local debugShown, debugHidden
     if isDebug then debugShown, debugHidden = {}, {} end
     for i = 1, #orbs do
@@ -459,7 +460,7 @@ function MoePower:StandardUpdatePower(orbs, module)
     end
 
     local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, n)
-    if MoePower.settings and MoePower.settings.debug then
+    if cachedDebug then
         dbgCtx.power = currentPower
         dbgCtx.max   = n
     end
@@ -481,6 +482,11 @@ end
 function MoePower:ApplyGrowDirection()
     cachedGrowDirection = MoePower.settings and MoePower.settings.growDirection or "center"
     UpdatePower("ApplyGrowDirection")
+end
+
+-- Sync debug cache after the debug setting changes (called from Options panel)
+function MoePower:ApplyDebug()
+    cachedDebug = MoePower.settings and MoePower.settings.debug or false
 end
 
 -- Initialize (or reinitialize) the addon — safe to call multiple times.
@@ -537,6 +543,7 @@ local function Initialize()
     end
 
     cachedGrowDirection = MoePower.settings and MoePower.settings.growDirection or "center"
+    cachedDebug         = MoePower.settings and MoePower.settings.debug         or false
     BuildOrbs()
     UpdatePower("Initialize")
     MoePower:ApplyScale()
@@ -617,8 +624,11 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
             UpdatePower(event)
         end
     elseif event == "UNIT_AURA" then
-        -- Sync aura-tracking modules out of combat when buffs change (opt-in via tracksAura)
-        if arg1 == "player" and activeModule and activeModule.tracksAura then
+        -- Sync aura-tracking modules out of combat when buffs change (opt-in via tracksAura).
+        -- In combat, internal counters are authoritative; aura data is not read during combat
+        -- (TWW 12.0), so skip UpdatePower entirely to avoid wasted work on every buff tick.
+        if arg1 == "player" and activeModule and activeModule.tracksAura
+        and not MoePower.inCombat then
             UpdatePower(event)
         end
     elseif event == "RUNE_POWER_UPDATE" then

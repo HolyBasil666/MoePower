@@ -11,7 +11,6 @@ local SPENDER_IDS = {
     [186270]  = true, -- Raptor Strike
     [1262293] = true, -- Raptor Swipe
     [1261193] = true, -- Boomstick
-    [1253859] = true, -- Takedown (also checked above for Twin Fangs case)
     [259495]  = true, -- Wildfire Bomb
     [193265]  = true, -- Hatchet Toss
     [1264949] = true, -- Chakram
@@ -102,6 +101,10 @@ end
 -- Called by framework on UNIT_SPELLCAST_SUCCEEDED for the player
 function HunterModule:OnSpellCast(spellID, castGUID)
     if not isSurvival then return end
+    -- Fast-exit for irrelevant spells before touching the dedup table
+    if spellID ~= KILL_COMMAND_ID and spellID ~= TAKEDOWN_ID and not SPENDER_IDS[spellID] then
+        return
+    end
     -- Deduplicate: ignore if we've already processed this cast
     if castGUID then
         if seenCastGUID[castGUID] then return end
@@ -118,7 +121,7 @@ function HunterModule:OnSpellCast(spellID, castGUID)
             tipStacks = math.max(tipStacks - 1, 0)
         end
         suppressNextSync = true
-    elseif SPENDER_IDS[spellID] then
+    else  -- SPENDER_IDS[spellID]
         tipStacks = math.max(tipStacks - 1, 0)
         suppressNextSync = true
     end

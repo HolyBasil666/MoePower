@@ -94,6 +94,8 @@ end
 -- Called by framework on UNIT_SPELLCAST_SUCCEEDED for the player
 function MonkModule:OnSpellCast(spellID, castGUID)
     if not isMistweaver then return end
+    -- Fast-exit for irrelevant spells before touching the dedup table
+    if spellID ~= TIGER_PALM_ID and spellID ~= BLACKOUT_KICK_ID then return end
     -- Deduplicate: ignore if we've already processed this cast
     if castGUID then
         if seenCastGUID[castGUID] then return end
@@ -102,7 +104,7 @@ function MonkModule:OnSpellCast(spellID, castGUID)
 
     if spellID == TIGER_PALM_ID then
         teachingsStacks = math.min(teachingsStacks + 1, TEACHINGS_MAX_STACKS)
-    elseif spellID == BLACKOUT_KICK_ID then
+    else  -- BLACKOUT_KICK_ID
         teachingsStacks = 0
     end
 end

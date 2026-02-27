@@ -111,6 +111,7 @@ local function BuildOptionsPanel()
     debugCheck:SetScript("OnClick", function(self)
         if MoePower.settings then
             MoePower.settings.debug = not not self:GetChecked()
+            MoePower:ApplyDebug()
         end
     end)
 
