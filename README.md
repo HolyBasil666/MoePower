@@ -54,10 +54,11 @@ Open via `Game Menu → Options → AddOns → MoePower`.
 
 | Setting | Description |
 |---------|-------------|
+| **Debug** | Enable debug print |
 | **Orb Scale** | Global size multiplier (0.5× – 2.0×), applied live |
 | **Layout** | Arc (default) or Horizontal line |
 | **Orb Fill Direction** | Center outward (default), Left → Right, or Right → Left |
-| **Paladin: Hide at max** | Hide Paladin orbs at full Holy Power when out of combat |
+| **Paladin: Hide OOC** | Hide Paladin Holy Power when out of combat |
 | **Modules** | Enable or disable individual class modules |
 
 ---
