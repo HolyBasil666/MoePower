@@ -498,11 +498,7 @@ local function Initialize()
 
     -- First run: create the persistent main frame
     if not frame then
-        if not activeModule then
-            local _, classFilename = UnitClass("player")
-            print("|cff00ff00MoePower:|r No module found for " .. (classFilename or "Unknown") .. " class")
-            return
-        end
+        if not activeModule then return end
         frame = CreateFrame("Frame", "MoePowerFrame", UIParent)
         frame:SetSize(400, 400)
         frame:SetPoint("CENTER", UIParent, "CENTER", DEFAULT_POSITION_X, DEFAULT_POSITION_Y)
