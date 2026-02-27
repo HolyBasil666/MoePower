@@ -100,9 +100,23 @@ local function BuildOptionsPanel()
     title:SetPoint("TOPLEFT", 16, -16)
     title:SetText("MoePower")
 
+    -- ── Debug checkbox (top of panel for quick access) ────────────────────────
+    local debugCheck = CreateFrame("CheckButton", nil, C, "UICheckButtonTemplate")
+    debugCheck:SetPoint("TOPLEFT", title, "BOTTOMLEFT", -2, -8)
+
+    local debugCheckLabel = C:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    debugCheckLabel:SetPoint("LEFT", debugCheck, "RIGHT", 4, 0)
+    debugCheckLabel:SetText("Debug: print orb show/hide/update to chat")
+
+    debugCheck:SetScript("OnClick", function(self)
+        if MoePower.settings then
+            MoePower.settings.debug = not not self:GetChecked()
+        end
+    end)
+
     -- ── Display section ───────────────────────────────────────────────────────
     local displayHeader = C:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    displayHeader:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -20)
+    displayHeader:SetPoint("TOPLEFT", debugCheck, "BOTTOMLEFT", 2, -16)
     displayHeader:SetText("Display")
     displayHeader:SetTextColor(0.6, 0.6, 0.6)
 
@@ -360,30 +374,6 @@ local function BuildOptionsPanel()
             curY = curY - H_CB
         end
     end
-
-    -- ── Developer section ─────────────────────────────────────────────────────
-    local devHeader = C:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    devHeader:SetPoint("TOPLEFT", divider3, "BOTTOMLEFT", 0, curY - 24)
-    devHeader:SetText("Developer")
-    devHeader:SetTextColor(0.6, 0.6, 0.6)
-
-    local dividerDev = C:CreateTexture(nil, "ARTWORK")
-    dividerDev:SetColorTexture(0.4, 0.4, 0.4, 0.6)
-    dividerDev:SetSize(530, 1)
-    dividerDev:SetPoint("TOPLEFT", devHeader, "BOTTOMLEFT", 0, -4)
-
-    local debugCheck = CreateFrame("CheckButton", nil, C, "UICheckButtonTemplate")
-    debugCheck:SetPoint("TOPLEFT", dividerDev, "BOTTOMLEFT", -2, -8)
-
-    local debugCheckLabel = C:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    debugCheckLabel:SetPoint("LEFT", debugCheck, "RIGHT", 4, 0)
-    debugCheckLabel:SetText("Debug: print orb show/hide/update to chat")
-
-    debugCheck:SetScript("OnClick", function(self)
-        if MoePower.settings then
-            MoePower.settings.debug = not not self:GetChecked()
-        end
-    end)
 
     -- ── OnShow: sync widgets from saved settings ──────────────────────────────
     panel:SetScript("OnShow", function()

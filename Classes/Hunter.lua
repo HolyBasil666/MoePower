@@ -41,8 +41,9 @@ local HunterModule = {
 }
 
 -- Internal state
-local tipStacks      = 0
-local seenCastGUID   = {}
+local tipStacks        = 0
+local seenCastGUID     = {}
+local suppressNextSync = false  -- Suppresses SyncFromAura for one GetCurrentPower call after OnSpellCast
 local hasPrimalSurge = false
 local hasTwinFangs   = false
 local isSurvival     = false  -- Cached spec check; set in CreateOrbs on every Initialize/spec change
@@ -79,9 +80,17 @@ function HunterModule:CreateOrbs(frame, layoutConfig)
     return MoePower:BuildOrbFrames(frame, layoutConfig, self)
 end
 
--- Read internal stack counter; sync from aura when safe (out of combat)
+-- Read internal stack counter; sync from aura when safe (out of combat).
+-- Skips one sync after OnSpellCast to avoid overwriting a freshly-incremented
+-- tipStacks before the Tip of the Spear buff has actually been applied.
 function HunterModule:GetCurrentPower()
-    if not MoePower.inCombat then SyncFromAura() end
+    if not MoePower.inCombat then
+        if suppressNextSync then
+            suppressNextSync = false
+        else
+            SyncFromAura()
+        end
+    end
     return tipStacks
 end
 
@@ -101,14 +110,17 @@ function HunterModule:OnSpellCast(spellID, castGUID)
 
     if spellID == KILL_COMMAND_ID then
         tipStacks = math.min(tipStacks + (hasPrimalSurge and 2 or 1), TIP_MAX_STACKS)
+        suppressNextSync = true
     elseif spellID == TAKEDOWN_ID then
         if hasTwinFangs then
             tipStacks = math.min(tipStacks + 3, TIP_MAX_STACKS)
         else
             tipStacks = math.max(tipStacks - 1, 0)
         end
+        suppressNextSync = true
     elseif SPENDER_IDS[spellID] then
         tipStacks = math.max(tipStacks - 1, 0)
+        suppressNextSync = true
     end
 end
 
