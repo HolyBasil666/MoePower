@@ -1,8 +1,10 @@
 # MoePower
 
-A lightweight, modular class power HUD for **World of Warcraft: The War Within**.
+The original developer of [Glowing Holy Power](https://wago.io/LwgUHgLlL), [Glowing Essence](https://wago.io/pO5RyuCtD), and [Teachings of the Monastery](https://wago.io/Sx5hSFPWI) presents:
 
-Displays your class resource (Holy Power, Essence, combo points, etc.) as animated orbs arranged in an arc or horizontal line around your character — no external libraries required.
+A lightweight, modular class power HUD for **World of Warcraft: Midnight**.
+
+Displays your class resource (Holy Power, Essence, combo points, etc.) as textured orbs arranged in an arc or horizontal line around your character — no external libraries required.
 
 ![Version: 1.0](https://img.shields.io/badge/Version-1.0-blue)
 
