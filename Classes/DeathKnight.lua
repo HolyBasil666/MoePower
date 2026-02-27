@@ -16,7 +16,7 @@ local DeathKnightModule = {
     -- No powerTypeName: UNIT_POWER_FREQUENT is unreliable for runes; RUNE_POWER_UPDATE is used instead
 
     config = {
-        orbSize              = 22,
+        orbSize              = 20,
         backgroundScale      = 1.5,
         foregroundScale      = 0.8,
         backgroundAtlas      = "UF-DKRunes-BGActive",
