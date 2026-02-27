@@ -2,8 +2,12 @@
 
 local _, MoePower = ...
 
--- Rune texture mapping for positions 1-5
-local runeMap = {4, 2, 1, 3, 5}
+-- Rune texture mapping for positions 1-5, keyed by grow direction
+local runeMaps = {
+    center = {4, 2, 1, 3, 5},  -- center-outward: rune 1 at middle, 4/5 at edges
+    left   = {1, 2, 3, 4, 5},  -- left→right: rune 1 at leftmost orb
+    right  = {5, 4, 3, 2, 1},  -- right→left: rune 5 at leftmost orb
+}
 local ACTIVE_VARIANT_ALPHA = MoePower.ACTIVE_ALPHA * 2 / 3  -- Alpha for "active" variant (<=2 HP)
 
 -- Atlas validation (checked once; atlas availability doesn't change at runtime)
@@ -30,8 +34,10 @@ function PaladinModule:GetForegroundAtlas(i, currentPower)
         useRuneAtlas = C_Texture.GetAtlasInfo("uf-holypower-rune1-active") ~= nil
     end
     if not useRuneAtlas then return nil end
+    local dir = (MoePower.settings and MoePower.settings.growDirection) or "center"
+    local rmap = runeMaps[dir] or runeMaps.center
     local variant = (currentPower <= 2) and "active" or "ready"
-    return "uf-holypower-rune" .. runeMap[i] .. "-" .. variant
+    return "uf-holypower-rune" .. rmap[i] .. "-" .. variant
 end
 
 -- Hide OOC when the "paladinHideWhenFull" setting is enabled
