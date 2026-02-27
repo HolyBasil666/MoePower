@@ -32,11 +32,11 @@ local HunterModule = {
     specKeys    = { [3] = "SURVIVAL" },
     maxPower    = TIP_MAX_STACKS,
     tracksAura  = true,  -- Opt-in: UNIT_AURA → UpdatePower (out-of-combat aura sync)
-    -- No powerType / powerTypeName: framework uses maxPower and routes UNIT_SPELLCAST_SUCCEEDED
     config = {
-        orbSize         = 20,
-        foregroundScale = 1.0,
-        foregroundAtlas = "ClassOverlay-ComboPoint",
+        orbSize              = 20,
+        foregroundScale      = 1.0,
+        foregroundAtlas      = "ClassOverlay-ComboPoint",
+        foregroundFallbackColor = {1.0, 0.65, 0.0, 1.0},  -- amber
     }
 }
 
@@ -46,20 +46,12 @@ local seenCastGUID   = {}
 local hasPrimalSurge = false
 local hasTwinFangs   = false
 local isSurvival     = false  -- Cached spec check; set in CreateOrbs on every Initialize/spec change
--- Event-driven combat flag: avoids the brief window where UnitAffectingCombat()
--- returns false right after PLAYER_REGEN_DISABLED fires (TWW 12.0 timing issue).
-local moduleInCombat = false
 
+-- Wipe cast-dedup table when leaving combat (MoePower.inCombat tracks the flag itself)
 local combatFrame = CreateFrame("Frame")
-combatFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 combatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-combatFrame:SetScript("OnEvent", function(self, event)
-    if event == "PLAYER_REGEN_DISABLED" then
-        moduleInCombat = true
-    else  -- PLAYER_REGEN_ENABLED
-        moduleInCombat = false
-        wipe(seenCastGUID)
-    end
+combatFrame:SetScript("OnEvent", function()
+    wipe(seenCastGUID)
 end)
 
 -- Refresh talent flags (call after any talent/spec change)
@@ -73,6 +65,29 @@ end
 local function SyncFromAura()
     local auraData = C_UnitAuras.GetPlayerAuraBySpellID(TIP_SPELL_ID)
     tipStacks = auraData and (auraData.applications or 0) or 0
+end
+
+-- CreateOrbs: spec check + pre-init, then delegate to generic frame builder
+function HunterModule:CreateOrbs(frame, layoutConfig)
+    isSurvival = GetSpecialization() == SURVIVAL_SPEC
+    -- Only Survival needs UNIT_AURA routing (OOC aura sync).
+    self.tracksAura = isSurvival
+    if not isSurvival then return {} end
+
+    SyncFromAura()
+    UpdateTalents()
+    return MoePower:BuildOrbFrames(frame, layoutConfig, self)
+end
+
+-- Read internal stack counter; sync from aura when safe (out of combat)
+function HunterModule:GetCurrentPower()
+    if not MoePower.inCombat then SyncFromAura() end
+    return tipStacks
+end
+
+-- Hide after 1s when out of combat with no stacks
+function HunterModule:ShouldHideOOC(currentPower, maxPower)
+    return currentPower == 0
 end
 
 -- Called by framework on UNIT_SPELLCAST_SUCCEEDED for the player
@@ -94,111 +109,6 @@ function HunterModule:OnSpellCast(spellID, castGUID)
         end
     elseif SPENDER_IDS[spellID] then
         tipStacks = math.max(tipStacks - 1, 0)
-    end
-end
-
--- Create orb frames in arc formation
-function HunterModule:CreateOrbs(frame, layoutConfig)
-    isSurvival = GetSpecialization() == SURVIVAL_SPEC
-    -- Only Survival needs UNIT_AURA routing (OOC aura sync).
-    -- Non-Survival specs have no orbs; disabling tracksAura avoids routing UNIT_AURA → UpdatePower unnecessarily.
-    self.tracksAura = isSurvival
-    if not isSurvival then return {} end
-
-    local orbs = {}
-    local cfg        = self.config
-    local orbSize    = cfg.orbSize
-    local fgSize     = orbSize * cfg.foregroundScale
-    local layout     = layoutConfig.layout or "arc"
-    local arcRadius  = layoutConfig.arcRadius
-    local arcSpan    = layoutConfig.arcSpan
-    local startAngle = 90 + (arcSpan / 2)
-    local arcStep    = arcSpan / (TIP_MAX_STACKS - 1)
-    local horizStep  = cfg.orbSize + 4
-
-    -- Atlas check hoisted: result is identical for every orb
-    local atlasName = cfg.foregroundAtlas
-    local useAtlas  = C_Texture.GetAtlasInfo(atlasName) ~= nil
-
-    for i = 1, TIP_MAX_STACKS do
-        local x, y
-        if layout == "horizontal" then
-            x = -(horizStep * (TIP_MAX_STACKS - 1) / 2) + (i - 1) * horizStep
-            y = arcRadius
-        else
-            local radian = math.rad(startAngle - (i - 1) * arcStep)
-            x = arcRadius * math.cos(radian)
-            y = arcRadius * math.sin(radian)
-        end
-
-        local orbFrame = CreateFrame("Frame", nil, frame)
-        orbFrame:SetSize(orbSize, orbSize)
-        orbFrame:SetPoint("CENTER", frame, "CENTER", x, y)
-
-        -- Foreground (active fill)
-        local foreground = orbFrame:CreateTexture(nil, "ARTWORK")
-        foreground:SetSize(fgSize, fgSize)
-        foreground:SetPoint("CENTER", orbFrame, "CENTER", 0, 0)
-        if useAtlas then
-            foreground:SetAtlas(atlasName)
-        else
-            foreground:SetColorTexture(1.0, 0.65, 0.0, 1.0)  -- amber fallback
-        end
-
-        local fadeIn, fadeOut = MoePower:AddOrbAnimations(orbFrame)
-
-        -- foreground not stored: texture is set once and never changed
-        orbs[i] = {
-            frame   = orbFrame,
-            fadeIn  = fadeIn,
-            fadeOut = fadeOut,
-            active  = false,
-        }
-
-        orbFrame:SetAlpha(0)
-        orbFrame:Show()
-    end
-
-    -- Sync initial state and talent flags (safe: CreateOrbs is never called mid-combat)
-    SyncFromAura()
-    UpdateTalents()
-
-    return orbs
-end
-
--- Update orb display from internal stack counter
-function HunterModule:UpdatePower(orbs)
-    local n = #orbs
-    if n == 0 then return end  -- non-Survival spec: no orbs to update
-    -- Out of combat: sync from aura (safe; event-driven flag is never briefly wrong)
-    if not moduleInCombat then
-        SyncFromAura()
-    end
-
-    local currentStacks = tipStacks
-    local startIndex, endIndex = MoePower:GetVisibleRange(currentStacks, n)
-
-    for i = 1, n do
-        if i >= startIndex and i <= endIndex then
-            if not orbs[i].active then
-                orbs[i].fadeOut:Stop()
-                orbs[i].fadeIn:Play()
-                orbs[i].active = true
-            end
-        else
-            if orbs[i].active then
-                orbs[i].fadeIn:Stop()
-                orbs[i].fadeOut:Play()
-                orbs[i].active = false
-            end
-        end
-    end
-
-    -- Hide after 1s when out of combat with no stacks
-    if not moduleInCombat and currentStacks == 0 then
-        MoePower:ScheduleHideOrbs(orbs, 1)
-    else
-        MoePower:CancelHideOrbs()
     end
 end
 

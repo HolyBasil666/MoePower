@@ -32,6 +32,7 @@ local UpdatePower  -- Forward declaration (referenced by SetupEditMode callbacks
 -- Class module registry
 local classModules = {}
 MoePower.classModules = classModules  -- expose for Options.lua (populated at file load time)
+MoePower.inCombat = false             -- shared combat flag; updated by PLAYER_REGEN_DISABLED/ENABLED
 
 function MoePower:RegisterClassModule(module)
     if module.className then
@@ -209,8 +210,11 @@ end
 UpdatePower = function()
     if inEditMode then return end
     if playerMounted then return end
-    if activeModule and activeModule.UpdatePower then
+    if not activeModule then return end
+    if activeModule.UpdatePower then
         activeModule:UpdatePower(powerOrbs)
+    else
+        MoePower:StandardUpdatePower(powerOrbs, activeModule)
     end
 end
 
@@ -235,18 +239,23 @@ local function ClearOrbs()
     powerOrbs = {}
 end
 
--- Create orbs for the active module
+-- Create orbs for the active module (delegates to module's CreateOrbs or the generic BuildOrbFrames)
 local function BuildOrbs()
-    if not activeModule or not activeModule.CreateOrbs then return end
+    if not activeModule then return end
     local maxPower = GetModuleMaxPower(activeModule)
     local arcSpan  = BASE_ORB_SPACING * (maxPower - 1)
     local layout   = MoePower.settings and MoePower.settings.layout or "arc"
-    powerOrbs = activeModule:CreateOrbs(frame, { layout = layout, arcRadius = ARC_RADIUS, arcSpan = arcSpan })
+    local layoutConfig = { layout = layout, arcRadius = ARC_RADIUS, arcSpan = arcSpan }
+    if activeModule.CreateOrbs then
+        powerOrbs = activeModule:CreateOrbs(frame, layoutConfig)
+    else
+        powerOrbs = MoePower:BuildOrbFrames(frame, layoutConfig, activeModule)
+    end
 end
 
 -- Recreate orbs when max power changes (e.g. talent change within the same spec)
 local function RecreateOrbs()
-    if not activeModule or not activeModule.CreateOrbs or not frame then return end
+    if not activeModule or not frame then return end
     local maxPower = GetModuleMaxPower(activeModule)
     if #powerOrbs == maxPower then return end  -- count unchanged, skip
     ClearOrbs()
@@ -256,7 +265,7 @@ end
 
 -- Force a full orb rebuild (called when layout settings change at runtime)
 function MoePower:RebuildOrbs()
-    if not activeModule or not activeModule.CreateOrbs or not frame then return end
+    if not activeModule or not frame then return end
     ClearOrbs()
     BuildOrbs()
     UpdatePower()
@@ -272,6 +281,157 @@ function MoePower:GetVisibleRange(currentPower, maxPower)
     else  -- "center" (default)
         local s = math.floor((maxPower - currentPower) / 2) + 1
         return s, s + currentPower - 1
+    end
+end
+
+-- Compute x, y position for orb i (1-based) given layout configuration and orb pixel size.
+function MoePower:GetOrbPosition(i, maxPower, layoutConfig, orbSize)
+    local arcRadius = layoutConfig.arcRadius
+    if (layoutConfig.layout or "arc") == "horizontal" then
+        local horizStep = orbSize + 4
+        return -(horizStep * (maxPower - 1) / 2) + (i - 1) * horizStep, arcRadius
+    else
+        local arcSpan    = layoutConfig.arcSpan
+        local startAngle = 90 + (arcSpan / 2)
+        local arcStep    = maxPower > 1 and arcSpan / (maxPower - 1) or 0
+        local radian     = math.rad(startAngle - (i - 1) * arcStep)
+        return arcRadius * math.cos(radian), arcRadius * math.sin(radian)
+    end
+end
+
+-- Fade orbs in/out: show orbs within [startIndex, endIndex], hide the rest.
+function MoePower:UpdateOrbVisibility(orbs, startIndex, endIndex)
+    for i = 1, #orbs do
+        if i >= startIndex and i <= endIndex then
+            if not orbs[i].active then
+                orbs[i].fadeOut:Stop()
+                orbs[i].fadeIn:Play()
+                orbs[i].active = true
+            end
+        else
+            if orbs[i].active then
+                orbs[i].fadeIn:Stop()
+                orbs[i].fadeOut:Play()
+                orbs[i].active = false
+            end
+        end
+    end
+end
+
+-- Generic CreateOrbs: builds all orb frames for the given module.
+-- Calls module hook methods when present; falls back to config/defaults otherwise.
+-- Hook API (all optional unless noted):
+--   module:GetCurrentPower()             → number  (default: UnitPower(powerType) or 0)
+--   module:GetForegroundAtlas(i, cp)     → string|nil  (nil = use color fallback)
+--   module:GetForegroundOffset(i)        → x, y    (default: 0, 0)
+--   module:GetForegroundFallbackColor()  → {r,g,b,a}
+function MoePower:BuildOrbFrames(parentFrame, layoutConfig, module)
+    local cfg      = module.config
+    local orbSize  = cfg.orbSize
+    local maxPower = GetModuleMaxPower(module)
+
+    -- Initial power (determines starting alpha)
+    local currentPower
+    if module.GetCurrentPower then
+        currentPower = module:GetCurrentPower()
+    elseif module.powerType then
+        currentPower = UnitPower("player", module.powerType)
+    else
+        currentPower = 0
+    end
+    local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, maxPower)
+
+    -- Hoist static atlas checks outside loop (only used when no GetForegroundAtlas hook)
+    local useBgAtlas = cfg.backgroundAtlas and C_Texture.GetAtlasInfo(cfg.backgroundAtlas) ~= nil
+    local useFgAtlas = cfg.foregroundAtlas  and C_Texture.GetAtlasInfo(cfg.foregroundAtlas) ~= nil
+
+    local orbs = {}
+    for i = 1, maxPower do
+        local x, y = MoePower:GetOrbPosition(i, maxPower, layoutConfig, orbSize)
+
+        local orbFrame = CreateFrame("Frame", nil, parentFrame)
+        orbFrame:SetSize(orbSize, orbSize)
+        orbFrame:SetPoint("CENTER", parentFrame, "CENTER", x, y)
+
+        -- Background (optional; present only when backgroundAtlas key is non-nil)
+        local background
+        if cfg.backgroundAtlas then
+            background = orbFrame:CreateTexture(nil, "BACKGROUND")
+            background:SetSize(orbSize * (cfg.backgroundScale or 1.0), orbSize * (cfg.backgroundScale or 1.0))
+            background:SetPoint("CENTER", orbFrame, "CENTER", 0, 0)
+            if useBgAtlas then
+                background:SetAtlas(cfg.backgroundAtlas)
+            else
+                local bc = cfg.backgroundFallbackColor or {0.2, 0.2, 0.2, 0.75}
+                background:SetColorTexture(bc[1], bc[2], bc[3], bc[4])
+            end
+        end
+
+        -- Foreground
+        local foreground = orbFrame:CreateTexture(nil, "ARTWORK")
+        local fgX, fgY   = 0, 0
+        if module.GetForegroundOffset then fgX, fgY = module:GetForegroundOffset(i) end
+        foreground:SetSize(orbSize * (cfg.foregroundScale or 1.0), orbSize * (cfg.foregroundScale or 1.0))
+        foreground:SetPoint("CENTER", orbFrame, "CENTER", fgX, fgY)
+        -- Per-orb atlas hook takes priority; falls back to static config atlas; then color
+        local fgAtlas = module.GetForegroundAtlas and module:GetForegroundAtlas(i, currentPower)
+                     or (useFgAtlas and cfg.foregroundAtlas)
+        if fgAtlas then
+            foreground:SetAtlas(fgAtlas)
+        else
+            local fc = (module.GetForegroundFallbackColor and module:GetForegroundFallbackColor())
+                    or cfg.foregroundFallbackColor or {1, 1, 1, 1}
+            foreground:SetColorTexture(fc[1], fc[2], fc[3], fc[4])
+        end
+
+        local fadeIn, fadeOut = MoePower:AddOrbAnimations(orbFrame)
+
+        local active = i >= startIndex and i <= endIndex
+        orbFrame:SetAlpha(active and ACTIVE_ALPHA or 0)
+
+        orbs[i] = {
+            frame      = orbFrame,
+            background = background,
+            foreground = foreground,
+            fadeIn     = fadeIn,
+            fadeOut    = fadeOut,
+            active     = active,
+        }
+        orbFrame:Show()
+    end
+    return orbs
+end
+
+-- Generic UpdatePower: reads current power, fades orbs, schedules/cancels hide.
+-- Hook API:
+--   module:GetCurrentPower()                → number
+--   module:ShouldHideOOC(currentPower, max) → bool  (default: false)
+--   module:OnAfterUpdatePower(orbs, cp)     → void  (post-update hook, e.g. texture swaps)
+function MoePower:StandardUpdatePower(orbs, module)
+    local n = #orbs
+    if n == 0 then return end
+
+    local currentPower
+    if module.GetCurrentPower then
+        currentPower = module:GetCurrentPower()
+    elseif module.powerType then
+        currentPower = UnitPower("player", module.powerType)
+    else
+        currentPower = 0
+    end
+
+    local startIndex, endIndex = MoePower:GetVisibleRange(currentPower, n)
+    MoePower:UpdateOrbVisibility(orbs, startIndex, endIndex)
+
+    local shouldHide = module.ShouldHideOOC and module:ShouldHideOOC(currentPower, n)
+    if not MoePower.inCombat and shouldHide then
+        MoePower:ScheduleHideOrbs(orbs, 1)
+    else
+        MoePower:CancelHideOrbs()
+    end
+
+    if module.OnAfterUpdatePower then
+        module:OnAfterUpdatePower(orbs, currentPower)
     end
 end
 
@@ -423,6 +583,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         -- Fires on every individual rune spend/recharge (DK only)
         UpdatePower()
     elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
+        MoePower.inCombat = event == "PLAYER_REGEN_DISABLED"
         UpdatePower()
     elseif event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
         local wasMounted = playerMounted
