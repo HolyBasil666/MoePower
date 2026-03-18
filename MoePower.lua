@@ -596,9 +596,16 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         -- Zone change / instance transition: refresh display with current power state
         UpdatePower(event)
     elseif event == "PLAYER_TALENT_UPDATE" or event == "TRAIT_CONFIG_UPDATED" then
+        -- Filter TRAIT_CONFIG_UPDATED to the player's own active config (fires for all group members)
+        if event == "TRAIT_CONFIG_UPDATED" then
+            local activeConfigID = C_Traits.GetActiveConfigID()
+            if activeConfigID and arg1 ~= activeConfigID then return end
+        end
         -- Delay to ensure updated stats are available
         C_Timer.After(1, RecreateOrbs)
     elseif event == "PLAYER_SPECIALIZATION_CHANGED" then
+        -- Fires for all units; only reinitialize for the local player
+        if arg1 ~= "player" then return end
         -- Spec change may activate a different module entirely
         C_Timer.After(1, Initialize)
     elseif event == "UNIT_MAXPOWER" then
