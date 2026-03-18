@@ -1,4 +1,4 @@
-## Interface: 120001, 120000
+## Interface: 120001, 120005
 ## Title: MoePower
 ## Notes: Moe's Class Power HUD
 ## Author: HolyBasil666
