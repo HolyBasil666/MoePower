@@ -66,13 +66,13 @@ local function SavePosition()
     y = SnapToGrid(y)
     frame:ClearAllPoints()
     frame:SetPoint(point, UIParent, relativePoint, x, y)
-    MoePowerDB.position = { point = point, relativePoint = relativePoint, x = x, y = y }
+    MoePowerCharacterDB.position = { point = point, relativePoint = relativePoint, x = x, y = y }
 end
 
 -- Load saved position
 local function LoadPosition()
-    if MoePowerDB.position then
-        local pos = MoePowerDB.position
+    local pos = MoePowerCharacterDB and MoePowerCharacterDB.position
+    if pos then
         frame:ClearAllPoints()
         frame:SetPoint(pos.point, UIParent, pos.relativePoint, pos.x, pos.y)
     end
@@ -274,7 +274,7 @@ local function BuildOrbs()
     if not activeModule then return end
     local maxPower = GetModuleMaxPower(activeModule)
     local arcSpan  = BASE_ORB_SPACING * (maxPower - 1)
-    local layout   = MoePower.settings and MoePower.settings.layout or "arc"
+    local layout   = MoePower.charSettings and MoePower.charSettings.layout or "arc"
     local layoutConfig = { layout = layout, arcRadius = ARC_RADIUS, arcSpan = arcSpan }
     if activeModule.CreateOrbs then
         powerOrbs = activeModule:CreateOrbs(frame, layoutConfig)
@@ -480,7 +480,7 @@ end
 
 -- Re-render orbs for the current power without recreating frames (grow direction change)
 function MoePower:ApplyGrowDirection()
-    cachedGrowDirection = MoePower.settings and MoePower.settings.growDirection or "center"
+    cachedGrowDirection = MoePower.charSettings and MoePower.charSettings.growDirection or "center"
     UpdatePower("ApplyGrowDirection")
 end
 
@@ -538,7 +538,7 @@ local function Initialize()
         end
     end
 
-    cachedGrowDirection = MoePower.settings and MoePower.settings.growDirection or "center"
+    cachedGrowDirection = MoePower.charSettings and MoePower.charSettings.growDirection or "center"
     cachedDebug         = MoePower.settings and MoePower.settings.debug         or false
     BuildOrbs()
     UpdatePower("Initialize")

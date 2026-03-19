@@ -6,7 +6,7 @@
 ## RequiredDeps:
 ## X-Curse-Project-ID: 999999
 ## SavedVariables: MoePowerDB
-## SavedVariablesPerCharacter:
+## SavedVariablesPerCharacter: MoePowerCharacterDB
 
 MoePower.lua
 Options.lua

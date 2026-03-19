@@ -4,13 +4,17 @@
 
 local _, MoePower = ...
 
--- Default values for every setting
+-- Default values for account-wide settings
 local DEFAULTS = {
-    scale               = 1.0,     -- Global orb scale multiplier (0.5–2.0)
     paladinHideWhenFull = false,   -- Hide Paladin orbs out of combat
-    layout              = "arc",   -- "arc" or "horizontal"
-    growDirection       = "center", -- "center", "left", or "right"
     debug               = false,   -- Print orb show/hide/update info to chat
+}
+
+-- Default values for character-specific settings
+local CHARACTER_DEFAULTS = {
+    scale         = 1.0,      -- Orb scale multiplier (0.5–2.0)
+    layout        = "arc",    -- "arc" or "horizontal"
+    growDirection = "center", -- "center", "left", or "right"
 }
 
 -- Display names for each class module (used in the Modules section)
@@ -50,14 +54,17 @@ local SPEC_CONFIG = {
     },
 }
 
+-- Fill missing keys in tbl from defaults table
+local function FillDefaults(tbl, defaults)
+    for k, v in pairs(defaults) do
+        if tbl[k] == nil then tbl[k] = v end
+    end
+end
+
 -- Populate MoePowerDB.settings with defaults for any missing keys
 local function InitSettings()
     MoePowerDB.settings = MoePowerDB.settings or {}
-    for k, v in pairs(DEFAULTS) do
-        if MoePowerDB.settings[k] == nil then
-            MoePowerDB.settings[k] = v
-        end
-    end
+    FillDefaults(MoePowerDB.settings, DEFAULTS)
     -- moduleEnabled is a sub-table: nil/true = enabled, false = disabled (class-level fallback)
     MoePowerDB.settings.moduleEnabled = MoePowerDB.settings.moduleEnabled or {}
     -- specEnabled[className][specKey]: nil/true = enabled, false = disabled
@@ -65,10 +72,18 @@ local function InitSettings()
     MoePower.settings = MoePowerDB.settings
 end
 
+-- Populate MoePowerCharacterDB with character-specific defaults.
+local function InitCharacterSettings()
+    MoePowerCharacterDB = MoePowerCharacterDB or {}
+    MoePowerCharacterDB.settings = MoePowerCharacterDB.settings or {}
+    FillDefaults(MoePowerCharacterDB.settings, CHARACTER_DEFAULTS)
+    MoePower.charSettings = MoePowerCharacterDB.settings
+end
+
 -- Apply the saved scale to the main HUD frame (safe to call before frame exists)
 function MoePower:ApplyScale()
     if MoePower.frame then
-        MoePower.frame:SetScale(MoePower.settings and MoePower.settings.scale or 1.0)
+        MoePower.frame:SetScale(MoePower.charSettings and MoePower.charSettings.scale or 1.0)
     end
 end
 
@@ -174,8 +189,8 @@ local function BuildOptionsPanel()
     scaleSlider:SetScript("OnValueChanged", function(self, value)
         value = math.floor(value * 10 + 0.5) / 10  -- round to 1 d.p.
         scaleValue:SetText(string.format("%.1f×", value))
-        if MoePower.settings then
-            MoePower.settings.scale = value
+        if MoePower.charSettings then
+            MoePower.charSettings.scale = value
             MoePower:ApplyScale()
         end
     end)
@@ -208,8 +223,8 @@ local function BuildOptionsPanel()
     arcRadio:SetScript("OnClick", function(self)
         self:SetChecked(true)
         horizRadio:SetChecked(false)
-        if MoePower.settings then
-            MoePower.settings.layout = "arc"
+        if MoePower.charSettings then
+            MoePower.charSettings.layout = "arc"
             if MoePower.RebuildOrbs then MoePower:RebuildOrbs() end
         end
     end)
@@ -217,8 +232,8 @@ local function BuildOptionsPanel()
     horizRadio:SetScript("OnClick", function(self)
         self:SetChecked(true)
         arcRadio:SetChecked(false)
-        if MoePower.settings then
-            MoePower.settings.layout = "horizontal"
+        if MoePower.charSettings then
+            MoePower.charSettings.layout = "horizontal"
             if MoePower.RebuildOrbs then MoePower:RebuildOrbs() end
         end
     end)
@@ -259,8 +274,8 @@ local function BuildOptionsPanel()
         centerRadio:SetChecked(dir == "center")
         leftRadio:SetChecked(dir == "left")
         rightRadio:SetChecked(dir == "right")
-        if MoePower.settings then
-            MoePower.settings.growDirection = dir
+        if MoePower.charSettings then
+            MoePower.charSettings.growDirection = dir
             if MoePower.ApplyGrowDirection then MoePower:ApplyGrowDirection() end
         end
     end
@@ -379,17 +394,18 @@ local function BuildOptionsPanel()
     -- ── OnShow: sync widgets from saved settings ──────────────────────────────
     panel:SetScript("OnShow", function()
         if not MoePower.settings then return end
-        scaleSlider:SetValue(MoePower.settings.scale)
-        paladinCheck:SetChecked(MoePower.settings.paladinHideWhenFull)
-        -- Sync layout radio buttons
-        local isArc = (MoePower.settings.layout or "arc") == "arc"
+        -- Character-specific settings
+        local cs = MoePower.charSettings or {}
+        scaleSlider:SetValue(cs.scale or 1.0)
+        local isArc = (cs.layout or "arc") == "arc"
         arcRadio:SetChecked(isArc)
         horizRadio:SetChecked(not isArc)
-        -- Sync grow direction radio buttons
-        local dir = MoePower.settings.growDirection or "center"
+        local dir = cs.growDirection or "center"
         centerRadio:SetChecked(dir == "center")
         leftRadio:SetChecked(dir == "left")
         rightRadio:SetChecked(dir == "right")
+        -- Account-wide settings
+        paladinCheck:SetChecked(MoePower.settings.paladinHideWhenFull)
         -- Sync per-spec checkboxes: enabled unless explicitly set to false
         local specEnabled = MoePower.settings.specEnabled
         for className, specs in pairs(specCheckboxes) do
@@ -417,6 +433,7 @@ addonFrame:SetScript("OnEvent", function(self, event, addonName)
     if addonName ~= "MoePower" then return end
     self:UnregisterEvent("ADDON_LOADED")
 
+    InitCharacterSettings()
     InitSettings()
 
     local panel = BuildOptionsPanel()
