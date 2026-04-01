@@ -598,7 +598,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
     elseif event == "PLAYER_TALENT_UPDATE" or event == "TRAIT_CONFIG_UPDATED" then
         -- Filter TRAIT_CONFIG_UPDATED to the player's own active config (fires for all group members)
         if event == "TRAIT_CONFIG_UPDATED" then
-            local activeConfigID = C_Traits.GetActiveConfigID()
+            local activeConfigID = C_ClassTalents.GetActiveConfigID()
             if activeConfigID and arg1 ~= activeConfigID then return end
         end
         -- Delay to ensure updated stats are available
